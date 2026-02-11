@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCharFormat, QColor, QPalette
 from smartmerge.core.diff_engine import myers_opcodes, normalize_opcodes
 from smartmerge.core.smart_diff_engine import smart_diff
+from smartmerge.ui.syntax_highlighter import SyntaxHighlighter
 
 
 class FileCompareWidget(QWidget):
@@ -98,12 +99,16 @@ class FileCompareWidget(QWidget):
         with open(left_path, "r", encoding="utf-8", errors="ignore") as f:
             self.left_lines = f.readlines()
         self.left_file_label.setText(f"📄 {left_path}")
+        # Apply syntax highlighting
+        SyntaxHighlighter(self.left_text.document(), left_path)
         self._update_views()
 
     def load_right_file(self, right_path):
         with open(right_path, "r", encoding="utf-8", errors="ignore") as f:
             self.right_lines = f.readlines()
         self.right_file_label.setText(f"📄 {right_path}")
+        # Apply syntax highlighting
+        SyntaxHighlighter(self.right_text.document(), right_path)
         self._update_views()
 
     def set_font(self, font):
