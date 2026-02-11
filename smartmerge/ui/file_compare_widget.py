@@ -128,19 +128,57 @@ class FileCompareWidget(QWidget):
                     right_formats.append(None)
                     region_map.append(None)
             elif tag == "replace":
-                llen = i2 - i1
-                rlen = j2 - j1
-                maxlen = max(llen, rlen)
-                for k in range(maxlen):
-                    left_line = self.left_lines[i1 + k].rstrip("\n") if k < llen else ""
-                    right_line = (
-                        self.right_lines[j1 + k].rstrip("\n") if k < rlen else ""
-                    )
-                    left_lines_out.append(left_line)
-                    right_lines_out.append(right_line)
-                    region_map.append(None)
-                    left_formats.append(change_format)
-                    right_formats.append(change_format)
+                import difflib
+
+                left_block = [line.rstrip("\n") for line in self.left_lines[i1:i2]]
+                right_block = [line.rstrip("\n") for line in self.right_lines[j1:j2]]
+                sub_matcher = difflib.SequenceMatcher(
+                    None, left_block, right_block, autojunk=False
+                )
+                for stag, si1, si2, sj1, sj2 in sub_matcher.get_opcodes():
+                    if stag == "equal":
+                        for li, rj in zip(range(si1, si2), range(sj1, sj2)):
+                            left_lines_out.append(left_block[li])
+                            right_lines_out.append(right_block[rj])
+                            left_formats.append(None)
+                            right_formats.append(None)
+                            region_map.append(None)
+                    elif stag == "replace":
+                        llen = si2 - si1
+                        rlen = sj2 - sj1
+                        maxlen = max(llen, rlen)
+                        for k in range(maxlen):
+                            left_line = left_block[si1 + k] if k < llen else ""
+                            right_line = right_block[sj1 + k] if k < rlen else ""
+                            left_lines_out.append(left_line)
+                            right_lines_out.append(right_line)
+                            region_map.append(None)
+                            if left_line.rstrip() == right_line.rstrip():
+                                left_formats.append(None)
+                                right_formats.append(None)
+                            elif left_line == "" and right_line != "":
+                                left_formats.append(None)
+                                right_formats.append(insert_format)
+                            elif right_line == "" and left_line != "":
+                                left_formats.append(delete_format)
+                                right_formats.append(None)
+                            else:
+                                left_formats.append(change_format)
+                                right_formats.append(change_format)
+                    elif stag == "insert":
+                        for k in range(sj1, sj2):
+                            left_lines_out.append("")
+                            left_formats.append(None)
+                            right_lines_out.append(right_block[k])
+                            right_formats.append(insert_format)
+                            region_map.append(None)
+                    elif stag == "delete":
+                        for k in range(si1, si2):
+                            left_lines_out.append(left_block[k])
+                            left_formats.append(delete_format)
+                            right_lines_out.append("")
+                            right_formats.append(None)
+                            region_map.append(None)
             elif tag == "insert":
                 for k in range(j1, j2):
                     left_lines_out.append("")
@@ -155,6 +193,14 @@ class FileCompareWidget(QWidget):
                     right_lines_out.append("")
                     right_formats.append(None)
                     region_map.append(None)
+
+        # If aligned lines are identical, don't highlight them regardless of opcode
+        for idx, (left_line, right_line) in enumerate(
+            zip(left_lines_out, right_lines_out)
+        ):
+            if left_line.rstrip() == right_line.rstrip():
+                left_formats[idx] = None
+                right_formats[idx] = None
 
         # Output to text widgets
         self.left_text.clear()
@@ -205,13 +251,17 @@ class FileCompareWidget(QWidget):
     def _append_plain(self, text_edit, line):
         from PySide6.QtGui import QTextCursor
         from PySide6.QtGui import QTextBlockFormat
+        from PySide6.QtGui import QTextCharFormat
 
         cursor = text_edit.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         block_format = QTextBlockFormat()
         block_format.clearBackground()
         cursor.setBlockFormat(block_format)
-        cursor.insertText(line)
+        char_format = QTextCharFormat()
+        if self.current_font:
+            char_format.setFont(self.current_font)
+        cursor.insertText(line, char_format)
         cursor.insertText("\n")
         text_edit.setTextCursor(cursor)
 
