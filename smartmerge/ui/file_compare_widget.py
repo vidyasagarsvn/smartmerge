@@ -1,4 +1,11 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QTextEdit, QSplitter, QVBoxLayout
+from PySide6.QtWidgets import (
+    QWidget,
+    QHBoxLayout,
+    QTextEdit,
+    QSplitter,
+    QVBoxLayout,
+    QLabel,
+)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCharFormat, QColor, QPalette
 from smartmerge.core.diff_engine import myers_opcodes, normalize_opcodes
@@ -24,6 +31,12 @@ class FileCompareWidget(QWidget):
         layout = QHBoxLayout(self)
         # Left panel
         self.left_panel = QVBoxLayout()
+        self.left_file_label = QLabel("No file selected")
+        self.left_file_label.setStyleSheet(
+            "QLabel { background-color: #f3f4f6; color: #374151; padding: 8px 12px; "
+            "border-bottom: 1px solid #d1d5db; font-weight: 500; font-size: 12px; }"
+        )
+        self.left_panel.addWidget(self.left_file_label)
         self.left_text = QTextEdit()
         self.left_text.setPlaceholderText("Open left file...")
         self.left_text.setReadOnly(True)
@@ -40,6 +53,12 @@ class FileCompareWidget(QWidget):
         )
         # Right panel
         self.right_panel = QVBoxLayout()
+        self.right_file_label = QLabel("No file selected")
+        self.right_file_label.setStyleSheet(
+            "QLabel { background-color: #f3f4f6; color: #374151; padding: 8px 12px; "
+            "border-bottom: 1px solid #d1d5db; font-weight: 500; font-size: 12px; }"
+        )
+        self.right_panel.addWidget(self.right_file_label)
         self.right_text = QTextEdit()
         self.right_text.setPlaceholderText("Open right file...")
         self.right_text.setReadOnly(True)
@@ -78,11 +97,13 @@ class FileCompareWidget(QWidget):
     def load_left_file(self, left_path):
         with open(left_path, "r", encoding="utf-8", errors="ignore") as f:
             self.left_lines = f.readlines()
+        self.left_file_label.setText(f"📄 {left_path}")
         self._update_views()
 
     def load_right_file(self, right_path):
         with open(right_path, "r", encoding="utf-8", errors="ignore") as f:
             self.right_lines = f.readlines()
+        self.right_file_label.setText(f"📄 {right_path}")
         self._update_views()
 
     def set_font(self, font):
