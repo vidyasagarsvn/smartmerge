@@ -1,0 +1,96 @@
+<Window x:Class="SmartMerge.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SmartMerge - Diff and Merge Tool" 
+        Height="700" 
+        Width="1200"
+        WindowStartupLocation="CenterScreen"
+        Background="#F3F3F3">
+    
+    <DockPanel>
+        <!-- Menu Bar -->
+        <Menu DockPanel.Dock="Top" Background="White" Height="30">
+            <MenuItem Header="File">
+                <MenuItem Header="Open Files..." InputGestureText="Ctrl+O"/>
+                <MenuItem Header="Open Folders..." InputGestureText="Ctrl+Shift+O"/>
+                <Separator/>
+                <MenuItem Header="Exit"/>
+            </MenuItem>
+            <MenuItem Header="Edit">
+                <MenuItem Header="Copy Left to Right"/>
+                <MenuItem Header="Copy Right to Left"/>
+                <Separator/>
+                <MenuItem Header="Settings..." InputGestureText="Ctrl+,"/>
+            </MenuItem>
+            <MenuItem Header="View">
+                <MenuItem Header="Ignore Whitespace" IsCheckable="True"/>
+                <MenuItem Header="Syntax Highlighting" IsCheckable="True" IsChecked="True"/>
+                <MenuItem Header="Line Numbers" IsCheckable="True" IsChecked="True"/>
+            </MenuItem>
+            <MenuItem Header="Help">
+                <MenuItem Header="About SmartMerge"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Toolbar -->
+        <ToolBar DockPanel.Dock="Top" Background="White" Height="40" Padding="10,5">
+            <Button Content="Open Files" Width="80" Padding="5"/>
+            <Separator Width="1"/>
+            <Button Content="← Copy" Width="60" Padding="5"/>
+            <Button Content="→ Copy" Width="60" Padding="5"/>
+            <Separator Width="1"/>
+            <Button Content="⟨ Prev" Width="60" Padding="5"/>
+            <Button Content="Next ⟩" Width="60" Padding="5"/>
+        </ToolBar>
+
+        <!-- Main Content Area -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Panel -->
+            <Border Grid.Column="0" BorderBrush="#CCCCCC" BorderThickness="0,0,1,0">
+                <DockPanel Background="White">
+                    <StackPanel DockPanel.Dock="Top" Background="#007ACC" Height="30" VerticalAlignment="Center">
+                        <TextBlock Text="File: Original" Foreground="White" Margin="10,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBox DockPanel.Dock="Top" 
+                             Text="Path to left file..." 
+                             Height="30" 
+                             Margin="10" 
+                             Foreground="Gray"/>
+                    <TextBox TextWrapping="Wrap" 
+                             FontFamily="Consolas" 
+                             FontSize="11" 
+                             Margin="10" 
+                             Foreground="#1E1E1E"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="#CCCCCC"/>
+
+            <!-- Right Panel -->
+            <Border Grid.Column="2" BorderBrush="#CCCCCC" BorderThickness="1,0,0,0">
+                <DockPanel Background="White">
+                    <StackPanel DockPanel.Dock="Top" Background="#007ACC" Height="30" VerticalAlignment="Center">
+                        <TextBlock Text="File: Modified" Foreground="White" Margin="10,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBox DockPanel.Dock="Top" 
+                             Text="Path to right file..." 
+                             Height="30" 
+                             Margin="10" 
+                             Foreground="Gray"/>
+                    <TextBox TextWrapping="Wrap" 
+                             FontFamily="Consolas" 
+                             FontSize="11" 
+                             Margin="10" 
+                             Foreground="#1E1E1E"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

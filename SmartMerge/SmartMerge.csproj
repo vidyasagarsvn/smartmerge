@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <Version>0.1.0</Version>
+    <AssemblyName>SmartMerge</AssemblyName>
+    <RootNamespace>SmartMerge</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Diff/Merge Libraries -->
+    <PackageReference Include="DiffPlex" Version="1.7.2" />
+    <PackageReference Include="LibGit2Sharp" Version="1.4.512" />
+    
+    <!-- MVVM and Utilities -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.0" />
+    
+    <!-- Syntax Highlighting (Optional) -->
+    <PackageReference Include="TextMateSharp" Version="3.0.1" />
+    
+    <!-- Logging -->
+    <PackageReference Include="Serilog" Version="4.0.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+  </ItemGroup>
+
+</Project>

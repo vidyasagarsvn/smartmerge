@@ -1,14 +1,14 @@
 # SmartMerge - Project Conversation History
 
-**Last Updated:** February 9, 2026
+**Last Updated:** February 11, 2026
 
 ## Project Overview
-Building a cross-platform file and folder diff/merge tool similar to WinMerge, with a modern architecture and lightweight footprint.
+Building a cross-platform file and folder diff/merge tool similar to TortoiseMerge/Beyond Compare.
 
 ---
 
 ## Tool Name: SmartMerge
-**Final Decision:** SmartMerge (chosen from options with "Merge" in the name)
+**Final Decision:** SmartMerge
 
 ### Why SmartMerge?
 - Familiar and professional
@@ -18,23 +18,25 @@ Building a cross-platform file and folder diff/merge tool similar to WinMerge, w
 
 ---
 
-## Recommended Architecture
+## Architecture - UPDATED (February 11, 2026)
 
-### Stack: Modern & Lightweight
-- **Core Engine:** Rust (diff algorithms, file I/O, performance)
-- **UI Framework:** Tauri (lightweight Electron alternative, ~10MB vs ~150MB)
-- **Frontend:** React/Vue.js (modern, reactive UI)
+### PRIMARY STACK: C# + WPF (Windows Branch)
+- **Language:** C# (.NET 8+)
+- **UI Framework:** WPF (Windows Presentation Foundation)
+- **Target:** Windows-native performance and integration
+- **Branch:** `windows`
 
-### Why This Stack?
-- **Rust:** Memory-safe, blazing-fast, no GC pauses
-- **Tauri:** 15x smaller than Electron, native desktop performance
-- **React/Vue:** Rich ecosystem, responsive UI
-- **Result:** Cross-platform binaries (Windows, macOS, Linux) with single codebase
+### Why C# + WPF?
+- ✅ Performance: Compiled, near-C++/C speeds, optimized GC
+- ✅ Accuracy: Strong type system prevents bugs in diff logic
+- ✅ Windows Integration: Native Explorer context menus, file dialogs
+- ✅ Modern Development: LINQ for algorithms, latest language features
+- ✅ Rich Ecosystem: Mature NuGet packages (DiffPlex, LibGit2Sharp)
+- ✅ Professional Tools: VS Code, Visual Studio, debugger support
 
-### Alternative Stack (Enterprise)
-- **Core:** C/C++ (battle-tested algorithms)
-- **UI:** Qt (native look/feel, mature framework)
-- **Best for:** Enterprise features, maximum native performance
+### Previous Stack (DEPRECATED)
+- **Reason for Rejection:** Tauri encountered unending integration issues
+- **Archive:** See git history for Tauri branch decisions
 
 ---
 
