@@ -21,6 +21,8 @@ class FileCompareWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # Track current theme - needs to be initialized before init_ui
+        self.current_theme = "light"
         self.init_ui()
         self.current_font = self.left_text.font()
         self.left_lines = []
@@ -44,9 +46,6 @@ class FileCompareWidget(QWidget):
         self.undo_stack = []
         self.redo_stack = []
         self.max_undo_history = 50
-
-        # Track current theme
-        self.current_theme = "light"
 
     def init_ui(self):
         layout = QHBoxLayout(self)
@@ -161,6 +160,18 @@ class FileCompareWidget(QWidget):
         self.right_text.setFont(font)
         self._update_views()
 
+    def _get_diff_colors(self):
+        """Return diff highlighting colors based on current theme."""
+        if self.current_theme == "light":
+            changed_color = "#fef3c7"  # light amber
+            added_color = "#dcfce7"  # light green
+            deleted_color = "#fee2e2"  # light red
+        else:
+            changed_color = "#594d1f"  # dark amber
+            added_color = "#1e3a1f"  # dark green
+            deleted_color = "#3a1f1f"  # dark red
+        return changed_color, added_color, deleted_color
+
     def _update_views(self):
         if self.current_font:
             self.left_text.setFont(self.current_font)
@@ -174,13 +185,14 @@ class FileCompareWidget(QWidget):
             opcodes = normalize_opcodes(
                 opcodes, len(self.left_lines), len(self.right_lines)
             )
-        # Line highlight formats with subtle but clear colors
+        # Line highlight formats with theme-aware colors
+        changed_color, added_color, deleted_color = self._get_diff_colors()
         change_format = QTextCharFormat()
-        change_format.setBackground(QColor("#fef3c7"))  # changed (light amber)
+        change_format.setBackground(QColor(changed_color))
         insert_format = QTextCharFormat()
-        insert_format.setBackground(QColor("#dcfce7"))  # added (light green)
+        insert_format.setBackground(QColor(added_color))
         delete_format = QTextCharFormat()
-        delete_format.setBackground(QColor("#fee2e2"))  # deleted (light red)
+        delete_format.setBackground(QColor(deleted_color))
         left_lines_out = []
         right_lines_out = []
         left_formats = []
@@ -453,18 +465,26 @@ class FileCompareWidget(QWidget):
         block_format.clearBackground()
         cursor.setBlockFormat(block_format)
 
-        # Style line numbers with subtle background
+        # Style line numbers with theme-aware background
         if is_line_number_row:
-            # Line number part - with subtle background (first 7 chars: "   N | ")
+            # Line number part - with theme-aware background (first 7 chars: "   N | ")
             line_num_part = line[:7]
             content_part = line[7:]
 
-            # Format for line number
+            # Format for line number - theme-aware styling
             line_num_format = QTextCharFormat()
             if self.current_font:
                 line_num_format.setFont(self.current_font)
-            line_num_format.setBackground(QColor("#f3f4f6"))  # Light gray background
-            line_num_format.setForeground(QColor("#6b7280"))  # Gray text
+
+            if self.current_theme == "light":
+                line_num_format.setBackground(
+                    QColor("#f3f4f6")
+                )  # Light gray background
+                line_num_format.setForeground(QColor("#6b7280"))  # Gray text
+            else:
+                line_num_format.setBackground(QColor("#3d3d3d"))  # Dark gray background
+                line_num_format.setForeground(QColor("#9ca3af"))  # Light gray text
+
             cursor.insertText(line_num_part, line_num_format)
 
             # Format for content
@@ -527,6 +547,13 @@ class FileCompareWidget(QWidget):
                 text_edit.setTextCursor(cursor)
                 text_edit.ensureCursorVisible()
 
+    def _get_selection_color(self):
+        """Return the region selection color based on current theme."""
+        if self.current_theme == "light":
+            return "#bfdbfe"  # light blue
+        else:
+            return "#1e3a8a"  # dark blue
+
     def _set_change_selection(self, start_line: int, end_line: int) -> None:
         """Highlight a range of lines with the current region selection color."""
         from PySide6.QtGui import QTextCursor
@@ -536,7 +563,7 @@ class FileCompareWidget(QWidget):
         self._current_region_lines = (start_line, end_line)
 
         selection_format = QTextCharFormat()
-        selection_format.setBackground(QColor("#bfdbfe"))
+        selection_format.setBackground(QColor(self._get_selection_color()))
         selection_format.setProperty(QTextCharFormat.FullWidthSelection, True)
 
         for text_edit in (self.left_text, self.right_text):
@@ -900,6 +927,7 @@ class FileCompareWidget(QWidget):
     def set_theme(self, theme: str):
         """Set the current theme (light or dark)."""
         self.current_theme = theme
+        self._apply_theme_to_ui()
         # Close and recreate search dialog with new theme if it exists
         if hasattr(self, "_search_dialog") and self._search_dialog is not None:
             self._search_dialog.close()
@@ -908,8 +936,8 @@ class FileCompareWidget(QWidget):
     def show_search_dialog(self) -> SearchDialog:
         """Show the search dialog."""
         if not hasattr(self, "_search_dialog") or self._search_dialog is None:
-            self._search_dialog = SearchDialog(self, theme=self.current_theme)
-            self._search_dialog.search_requested.connect(self._on_search_requested)
+            self._search_dialog = SearchDialog(self.current_theme, parent=self)
+            self._search_dialog.search_requested.connect(self._on_search)
             self._search_dialog.find_next.connect(self._find_next)
             self._search_dialog.find_prev.connect(self._find_prev)
         self._search_dialog.show()
@@ -917,18 +945,41 @@ class FileCompareWidget(QWidget):
         self._search_dialog.activateWindow()
         return self._search_dialog
 
-    def _on_search_requested(self, text: str, case_sensitive: bool):
-        """Handle search request."""
-        self._search_text = text
-        self._search_case_sensitive = case_sensitive
-        self._search_position = -1
-        # Start search from current position in active text edit
-        if self.left_text.hasFocus():
-            self._search_in_text_edit = self.left_text
-        elif self.right_text.hasFocus():
-            self._search_in_text_edit = self.right_text
+    def _apply_theme_to_ui(self):
+        """Apply theme styling to UI elements."""
+        if self.current_theme == "light":
+            # Light mode
+            label_style = (
+                "QLabel { background-color: #f3f4f6; color: #374151; padding: 8px 12px; "
+                "border-bottom: 1px solid #d1d5db; font-weight: 500; font-size: 12px; }"
+            )
+            text_style = (
+                "QTextEdit { background-color: #ffffff; color: #111827; "
+                "selection-background-color: #2563eb; selection-color: #ffffff; }"
+            )
         else:
-            self._search_in_text_edit = self.left_text
+            # Dark mode
+            label_style = (
+                "QLabel { background-color: #3d3d3d; color: #e0e0e0; padding: 8px 12px; "
+                "border-bottom: 1px solid #4d4d4d; font-weight: 500; font-size: 12px; }"
+            )
+            text_style = (
+                "QTextEdit { background-color: #2a2a2a; color: #e0e0e0; "
+                "selection-background-color: #2563eb; selection-color: #ffffff; }"
+            )
+
+        self.left_file_label.setStyleSheet(label_style)
+        self.right_file_label.setStyleSheet(label_style)
+        self.left_text.setStyleSheet(text_style)
+        self.right_text.setStyleSheet(text_style)
+        # Reapply diff colors and line number styling if files are loaded
+        if self.left_lines or self.right_lines:
+            self._update_views()
+
+    def _on_search(self, search_text: str, case_sensitive: bool):
+        """Handle search request from search dialog."""
+        self._search_text = search_text
+        self._search_case_sensitive = case_sensitive
         self._find_next()
 
     def _find_next(self):

@@ -20,7 +20,7 @@ class SearchDialog(QDialog):
     find_next = Signal()
     find_prev = Signal()
 
-    def __init__(self, parent=None, theme: str = "light"):
+    def __init__(self, theme: str = "light", parent=None):
         super().__init__(parent)
         self.theme = theme
         self.setWindowTitle("Find")

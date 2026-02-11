@@ -338,6 +338,7 @@ class MainWindow(QMainWindow):
             self,
             initial_left_path=self.last_left_path,
             initial_right_path=self.last_right_path,
+            theme=self.current_theme,
         )
         from PySide6.QtWidgets import QDialog
 
@@ -489,7 +490,8 @@ class MainWindow(QMainWindow):
             QMenuBar::item:selected { background-color: #3d3d3d; }
             QMenu { background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #3d3d3d; }
             QMenu::item:selected { background-color: #3d3d3d; }
-            QTextEdit { background-color: #1e1e1e; color: #e0e0e0; border: 1px solid #3d3d3d; }
+            QTextEdit { background-color: #2a2a2a; color: #e0e0e0; border: 1px solid #3d3d3d; }
+            QPlainTextEdit { background-color: #2a2a2a; color: #e0e0e0; border: 1px solid #3d3d3d; }
             QStatusBar { background-color: #2d2d2d; color: #e0e0e0; border-top: 1px solid #3d3d3d; }
             QLineEdit { background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #3d3d3d; }
             QPushButton { background-color: #3d3d3d; color: #e0e0e0; border: 1px solid #4d4d4d; border-radius: 4px; padding: 5px; }
