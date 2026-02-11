@@ -57,9 +57,9 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.folder_compare)
 
         if sys.platform == "darwin":
-            default_font = QFont("Menlo", 14)
+            default_font = QFont("Monaco", 13)
         else:
-            default_font = QFont("Courier New", 14)
+            default_font = QFont("Courier New", 13)
         self.file_compare.set_font(default_font)
         self.folder_compare.set_font(default_font)
 
@@ -99,6 +99,13 @@ class MainWindow(QMainWindow):
         open_folders_action.triggered.connect(self.open_folders_dialog)
         self.back_action.triggered.connect(self.back_to_folder_view)
         exit_action.triggered.connect(self.close)
+
+        # Make main actions bold
+        bold_font = open_files_action.font()
+        bold_font.setBold(True)
+        open_files_action.setFont(bold_font)
+        open_folders_action.setFont(bold_font)
+
         file_menu.addAction(open_files_action)
         file_menu.addAction(open_folders_action)
         file_menu.addSeparator()
@@ -109,11 +116,14 @@ class MainWindow(QMainWindow):
 
         edit_menu = menubar.addMenu("Edit")
 
-        # Undo/Redo actions
+        # Undo/Redo actions - make bold for visibility
         self.undo_action = QAction("Undo", self)
         self.undo_action.setShortcut(_get_platform_shortcut("Ctrl+Z", "Cmd+Z"))
         self.undo_action.triggered.connect(self._undo)
         self.undo_action.setEnabled(False)
+        undo_font = self.undo_action.font()
+        undo_font.setBold(True)
+        self.undo_action.setFont(undo_font)
         edit_menu.addAction(self.undo_action)
 
         self.redo_action = QAction("Redo", self)
@@ -122,36 +132,48 @@ class MainWindow(QMainWindow):
         )
         self.redo_action.triggered.connect(self._redo)
         self.redo_action.setEnabled(False)
+        redo_font = self.redo_action.font()
+        redo_font.setBold(True)
+        self.redo_action.setFont(redo_font)
         edit_menu.addAction(self.redo_action)
 
         edit_menu.addSeparator()
 
-        # Save actions
-        save_action = QAction("Save", self)
+        # Save actions - make bold for visibility
+        save_action = QAction("Save Left File", self)
         save_action.setShortcut(_get_platform_shortcut("Ctrl+S", "Cmd+S"))
         save_action.triggered.connect(self._save)
+        save_font = save_action.font()
+        save_font.setBold(True)
+        save_action.setFont(save_font)
         edit_menu.addAction(save_action)
 
-        save_all_action = QAction("Save All", self)
+        save_all_action = QAction("Save All Files", self)
         save_all_action.setShortcut(
             _get_platform_shortcut("Ctrl+Shift+S", "Cmd+Shift+S")
         )
         save_all_action.triggered.connect(self._save_all)
+        save_all_font = save_all_action.font()
+        save_all_font.setBold(True)
+        save_all_action.setFont(save_all_font)
         edit_menu.addAction(save_all_action)
 
         edit_menu.addSeparator()
 
-        font_action = QAction("Font", self)
+        font_action = QAction("Font...", self)
         font_action.setShortcut(_get_platform_shortcut("Ctrl+Shift+F", "Cmd+Shift+F"))
         font_action.triggered.connect(self.open_font_dialog)
         edit_menu.addAction(font_action)
 
         edit_menu.addSeparator()
 
-        # Search action
+        # Search action - make bold for visibility
         search_action = QAction("Find...", self)
         search_action.setShortcut(_get_platform_shortcut("Ctrl+F", "Cmd+F"))
         search_action.triggered.connect(self._open_search)
+        search_font = search_action.font()
+        search_font.setBold(True)
+        search_action.setFont(search_font)
         edit_menu.addAction(search_action)
 
         # Go to line action (disabled - requires inline editing)
