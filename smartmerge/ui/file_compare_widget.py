@@ -26,7 +26,7 @@ class FileCompareWidget(QWidget):
         self.left_text.setReadOnly(True)
         self.left_text.setStyleSheet(
             "QTextEdit { background-color: #ffffff; color: #111827; "
-            "selection-background-color: #f0f0f0; }"
+            "selection-background-color: #2563eb; selection-color: #ffffff; }"
         )
         self.left_text.setFocusPolicy(Qt.NoFocus)  # Disable focus highlighting
         self._apply_light_palette(self.left_text)
@@ -42,7 +42,7 @@ class FileCompareWidget(QWidget):
         self.right_text.setReadOnly(True)
         self.right_text.setStyleSheet(
             "QTextEdit { background-color: #ffffff; color: #111827; "
-            "selection-background-color: #f0f0f0; }"
+            "selection-background-color: #2563eb; selection-color: #ffffff; }"
         )
         self.right_text.setFocusPolicy(Qt.NoFocus)  # Disable focus highlighting
         self._apply_light_palette(self.right_text)
@@ -230,6 +230,8 @@ class FileCompareWidget(QWidget):
         palette = text_edit.palette()
         palette.setColor(QPalette.Base, QColor("#ffffff"))
         palette.setColor(QPalette.Text, QColor("#111827"))
+        palette.setColor(QPalette.Highlight, QColor("#2563eb"))
+        palette.setColor(QPalette.HighlightedText, QColor("#ffffff"))
         text_edit.setPalette(palette)
 
     def _append_highlighted(self, text_edit, line, fmt):

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
 )
 from PySide6.QtCore import QSettings
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QIcon, QFont
 from importlib.resources import files, as_file
 from smartmerge.ui.file_compare_widget import FileCompareWidget
 from smartmerge.ui.folder_compare_widget import FolderCompareWidget
@@ -54,6 +54,13 @@ class MainWindow(QMainWindow):
         self.folder_compare.folder_selected.connect(self._on_folder_selected)
         self.folder_compare.file_selected.connect(self._on_file_selected)
         self.stacked_widget.addWidget(self.folder_compare)
+
+        if sys.platform == "darwin":
+            default_font = QFont("Menlo", 14)
+        else:
+            default_font = QFont("Courier New", 14)
+        self.file_compare.set_font(default_font)
+        self.folder_compare.set_font(default_font)
 
         self.setCentralWidget(self.stacked_widget)
         self._create_menu()
