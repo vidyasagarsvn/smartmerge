@@ -290,14 +290,16 @@ class MainWindow(QMainWindow):
             left_path, right_path = dialog.get_paths()
             if left_path:
                 self.file_compare.load_left_file(left_path)
-                self.statusBar.showMessage(f"Loaded left file: {left_path}")
                 self.last_left_path = left_path
                 self.settings.setValue("last_left_path", left_path)
             if right_path:
                 self.file_compare.load_right_file(right_path)
-                self.statusBar.showMessage(f"Loaded right file: {right_path}")
                 self.last_right_path = right_path
                 self.settings.setValue("last_right_path", right_path)
+
+            # Update status bar with comparison info
+            status = self.file_compare.get_status_info()
+            self.statusBar.showMessage(status)
 
             # Switch to file comparison view
             self.stacked_widget.setCurrentIndex(0)

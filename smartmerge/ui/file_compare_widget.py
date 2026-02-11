@@ -63,6 +63,7 @@ class FileCompareWidget(QWidget):
         self.left_text.setFocusPolicy(Qt.NoFocus)  # Disable focus highlighting
         self._apply_light_palette(self.left_text)
         self.left_panel.addWidget(self.left_text)
+
         # Keep scrolling in sync
         self.left_text.verticalScrollBar().valueChanged.connect(
             lambda value: self._sync_scroll(self.left_text, self.right_text, value)
@@ -85,6 +86,7 @@ class FileCompareWidget(QWidget):
         self.right_text.setFocusPolicy(Qt.NoFocus)  # Disable focus highlighting
         self._apply_light_palette(self.right_text)
         self.right_panel.addWidget(self.right_text)
+
         # Keep scrolling in sync
         self.right_text.verticalScrollBar().valueChanged.connect(
             lambda value: self._sync_scroll(self.right_text, self.left_text, value)
@@ -92,17 +94,6 @@ class FileCompareWidget(QWidget):
         # Merge controls panel
         self.controls_panel = QVBoxLayout()
         self.controls_panel.setAlignment(Qt.AlignTop)
-
-        # Copy/Move buttons
-        copy_to_right_btn = QPushButton("→")
-        copy_to_right_btn.setToolTip("Copy from left to right")
-        copy_to_right_btn.clicked.connect(self.copy_to_right)
-        self.controls_panel.addWidget(copy_to_right_btn)
-
-        copy_to_left_btn = QPushButton("←")
-        copy_to_left_btn.setToolTip("Copy from right to left")
-        copy_to_left_btn.clicked.connect(self.copy_to_left)
-        self.controls_panel.addWidget(copy_to_left_btn)
 
         # Add panels to splitter
         splitter = QSplitter(Qt.Horizontal)
@@ -178,18 +169,13 @@ class FileCompareWidget(QWidget):
             opcodes = normalize_opcodes(
                 opcodes, len(self.left_lines), len(self.right_lines)
             )
-        # Line highlight formats
+        # Line highlight formats with subtle but clear colors
         change_format = QTextCharFormat()
-        change_format.setBackground(QColor("#ffff99"))  # changed (yellow)
+        change_format.setBackground(QColor("#fef3c7"))  # changed (light amber)
         insert_format = QTextCharFormat()
-        insert_format.setBackground(QColor("#ccffcc"))  # added (green)
+        insert_format.setBackground(QColor("#dcfce7"))  # added (light green)
         delete_format = QTextCharFormat()
-        delete_format.setBackground(QColor("#ffcccc"))  # deleted (red)
-        # Clear previous merge controls
-        for i in reversed(range(self.controls_panel.count())):
-            widget = self.controls_panel.itemAt(i).widget()
-            if widget:
-                widget.setParent(None)
+        delete_format.setBackground(QColor("#fee2e2"))  # deleted (light red)
         left_lines_out = []
         right_lines_out = []
         left_formats = []
@@ -309,17 +295,25 @@ class FileCompareWidget(QWidget):
         for idx, (left_line_text, left_format) in enumerate(
             zip(left_lines_out, left_formats)
         ):
+            # Add line number prefix
+            line_num_text = f"{idx + 1:4d} | "
             if left_format:
-                self._append_highlighted(self.left_text, left_line_text, left_format)
+                self._append_highlighted(
+                    self.left_text, line_num_text + left_line_text, left_format
+                )
             else:
-                self._append_plain(self.left_text, left_line_text)
+                self._append_plain(self.left_text, line_num_text + left_line_text)
         for idx, (right_line_text, right_format) in enumerate(
             zip(right_lines_out, right_formats)
         ):
+            # Add line number prefix
+            line_num_text = f"{idx + 1:4d} | "
             if right_format:
-                self._append_highlighted(self.right_text, right_line_text, right_format)
+                self._append_highlighted(
+                    self.right_text, line_num_text + right_line_text, right_format
+                )
             else:
-                self._append_plain(self.right_text, right_line_text)
+                self._append_plain(self.right_text, line_num_text + right_line_text)
 
         self._change_line_indices = [
             idx
@@ -823,6 +817,43 @@ class FileCompareWidget(QWidget):
     def can_redo(self) -> bool:
         """Check if redo is available."""
         return len(self.redo_stack) > 0
+
+    def get_status_info(self) -> str:
+        """Return status information string for display."""
+        status_parts = []
+
+        # Region information
+        if self._change_regions:
+            region_num = self._current_region_index + 1
+            total_regions = len(self._change_regions)
+            status_parts.append(f"Region {region_num}/{total_regions}")
+        else:
+            status_parts.append("No differences")
+            return " | ".join(status_parts)
+
+        # File sizes
+        import os
+
+        if self.left_file_path and os.path.exists(self.left_file_path):
+            left_size = os.path.getsize(self.left_file_path)
+            status_parts.append(f"Left: {self._format_size(left_size)}")
+
+        if self.right_file_path and os.path.exists(self.right_file_path):
+            right_size = os.path.getsize(self.right_file_path)
+            status_parts.append(f"Right: {self._format_size(right_size)}")
+
+        # Line counts
+        status_parts.append(f"Lines: {len(self.left_lines)} vs {len(self.right_lines)}")
+
+        return " | ".join(status_parts)
+
+    def _format_size(self, size: int) -> str:
+        """Format file size in human-readable format."""
+        for unit in ["B", "KB", "MB", "GB"]:
+            if size < 1024:
+                return f"{size:.1f}{unit}"
+            size /= 1024
+        return f"{size:.1f}TB"
 
     def set_diff_engine(self, engine_name: str):
         """Set the diff engine to use (myers or smart)."""
