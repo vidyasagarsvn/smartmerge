@@ -104,6 +104,39 @@ class MainWindow(QMainWindow):
         self.back_action.setEnabled(False)  # Disabled by default
 
         edit_menu = menubar.addMenu("Edit")
+
+        # Undo/Redo actions
+        self.undo_action = QAction("Undo", self)
+        self.undo_action.setShortcut(_get_platform_shortcut("Ctrl+Z", "Cmd+Z"))
+        self.undo_action.triggered.connect(self._undo)
+        self.undo_action.setEnabled(False)
+        edit_menu.addAction(self.undo_action)
+
+        self.redo_action = QAction("Redo", self)
+        self.redo_action.setShortcut(
+            _get_platform_shortcut("Ctrl+Shift+Z", "Cmd+Shift+Z")
+        )
+        self.redo_action.triggered.connect(self._redo)
+        self.redo_action.setEnabled(False)
+        edit_menu.addAction(self.redo_action)
+
+        edit_menu.addSeparator()
+
+        # Save actions
+        save_action = QAction("Save", self)
+        save_action.setShortcut(_get_platform_shortcut("Ctrl+S", "Cmd+S"))
+        save_action.triggered.connect(self._save)
+        edit_menu.addAction(save_action)
+
+        save_all_action = QAction("Save All", self)
+        save_all_action.setShortcut(
+            _get_platform_shortcut("Ctrl+Shift+S", "Cmd+Shift+S")
+        )
+        save_all_action.triggered.connect(self._save_all)
+        edit_menu.addAction(save_all_action)
+
+        edit_menu.addSeparator()
+
         font_action = QAction("Font", self)
         font_action.setShortcut(_get_platform_shortcut("Ctrl+Shift+F", "Cmd+Shift+F"))
         font_action.triggered.connect(self.open_font_dialog)
@@ -121,6 +154,17 @@ class MainWindow(QMainWindow):
         prev_change_action.triggered.connect(self._previous_change)
         navigate_menu.addAction(next_change_action)
         navigate_menu.addAction(prev_change_action)
+        navigate_menu.addSeparator()
+        copy_to_right_action = QAction("Copy to Right", self)
+        copy_to_right_action.setShortcut(
+            _get_platform_shortcut("Alt+Right", "Alt+Right")
+        )
+        copy_to_right_action.triggered.connect(self._copy_to_right)
+        copy_to_left_action = QAction("Copy to Left", self)
+        copy_to_left_action.setShortcut(_get_platform_shortcut("Alt+Left", "Alt+Left"))
+        copy_to_left_action.triggered.connect(self._copy_to_left)
+        navigate_menu.addAction(copy_to_right_action)
+        navigate_menu.addAction(copy_to_left_action)
 
         # Engine submenu (under Options)
         engine_menu = options_menu.addMenu("Engine")
@@ -166,6 +210,73 @@ class MainWindow(QMainWindow):
     def _previous_change(self):
         if self.stacked_widget.currentIndex() == 0:
             self.file_compare.previous_change()
+
+    def _copy_to_right(self):
+        if self.stacked_widget.currentIndex() == 0:
+            self.file_compare.copy_to_right()
+            self._update_undo_redo_state()
+
+    def _copy_to_left(self):
+        if self.stacked_widget.currentIndex() == 0:
+            self.file_compare.copy_to_left()
+            self._update_undo_redo_state()
+
+    def _undo(self):
+        if self.stacked_widget.currentIndex() == 0:
+            self.file_compare.undo()
+            self._update_undo_redo_state()
+
+    def _redo(self):
+        if self.stacked_widget.currentIndex() == 0:
+            self.file_compare.redo()
+            self._update_undo_redo_state()
+
+    def _update_undo_redo_state(self):
+        """Update the enabled state of undo/redo actions."""
+        if self.stacked_widget.currentIndex() == 0:
+            self.undo_action.setEnabled(self.file_compare.can_undo())
+            self.redo_action.setEnabled(self.file_compare.can_redo())
+
+    def _save(self):
+        """Save the currently active file (left or right based on focus)."""
+        if self.stacked_widget.currentIndex() == 0:
+            # In file compare view, save both if modified
+            left_saved = False
+            right_saved = False
+            if self.file_compare.is_left_modified:
+                left_saved = self.file_compare.save_left_file()
+            if self.file_compare.is_right_modified:
+                right_saved = self.file_compare.save_right_file()
+
+            if left_saved or right_saved:
+                files_saved = []
+                if left_saved:
+                    files_saved.append("Left file")
+                if right_saved:
+                    files_saved.append("Right file")
+                self.statusBar.showMessage(f"Saved: {', '.join(files_saved)}")
+            else:
+                self.statusBar.showMessage("No modified files to save")
+
+    def _save_all(self):
+        """Save all modified files."""
+        if self.stacked_widget.currentIndex() == 0:
+            left_saved = False
+            right_saved = False
+            if self.file_compare.is_left_modified:
+                left_saved = self.file_compare.save_left_file()
+            if self.file_compare.is_right_modified:
+                right_saved = self.file_compare.save_right_file()
+
+            if left_saved or right_saved:
+                files_saved = []
+                if left_saved:
+                    files_saved.append("Left file")
+                if right_saved:
+                    files_saved.append("Right file")
+                self.statusBar.showMessage(f"Saved all: {', '.join(files_saved)}")
+            else:
+                self.statusBar.showMessage("No modified files to save")
 
     def open_files_dialog(self):
         dialog = OpenFilesDialog(

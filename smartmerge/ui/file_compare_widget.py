@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QSplitter,
     QVBoxLayout,
     QLabel,
+    QPushButton,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCharFormat, QColor, QPalette
@@ -22,11 +23,25 @@ class FileCompareWidget(QWidget):
         self.current_font = self.left_text.font()
         self.left_lines = []
         self.right_lines = []
+        self.left_file_path = None
+        self.right_file_path = None
         self.diff_engine = "smart"  # Default to Smart Block Diff engine
         self._is_syncing_scroll = False
         self._change_regions = []  # List of (start_line, end_line) tuples for each change region
+        self._region_file_ranges = []  # List of ((left_start, left_end), (right_start, right_end)) for each region
         self._current_region_index = -1
         self._current_region_lines = None
+        self._left_line_map = []  # Maps rendered line index to original left_lines index
+        self._right_line_map = []  # Maps rendered line index to original right_lines index
+
+        # Track unsaved state
+        self.is_left_modified = False
+        self.is_right_modified = False
+
+        # Undo/Redo stacks - each entry is a tuple of (left_lines_copy, right_lines_copy)
+        self.undo_stack = []
+        self.redo_stack = []
+        self.max_undo_history = 50
 
     def init_ui(self):
         layout = QHBoxLayout(self)
@@ -77,6 +92,18 @@ class FileCompareWidget(QWidget):
         # Merge controls panel
         self.controls_panel = QVBoxLayout()
         self.controls_panel.setAlignment(Qt.AlignTop)
+
+        # Copy/Move buttons
+        copy_to_right_btn = QPushButton("→")
+        copy_to_right_btn.setToolTip("Copy from left to right")
+        copy_to_right_btn.clicked.connect(self.copy_to_right)
+        self.controls_panel.addWidget(copy_to_right_btn)
+
+        copy_to_left_btn = QPushButton("←")
+        copy_to_left_btn.setToolTip("Copy from right to left")
+        copy_to_left_btn.clicked.connect(self.copy_to_left)
+        self.controls_panel.addWidget(copy_to_left_btn)
+
         # Add panels to splitter
         splitter = QSplitter(Qt.Horizontal)
         left_widget = QWidget()
@@ -85,7 +112,7 @@ class FileCompareWidget(QWidget):
         right_widget.setLayout(self.right_panel)
         controls_widget = QWidget()
         controls_widget.setLayout(self.controls_panel)
-        controls_widget.setFixedWidth(40)
+        controls_widget.setFixedWidth(60)
         splitter.addWidget(left_widget)
         splitter.addWidget(controls_widget)
         splitter.addWidget(right_widget)
@@ -98,18 +125,39 @@ class FileCompareWidget(QWidget):
     def load_left_file(self, left_path):
         with open(left_path, "r", encoding="utf-8", errors="ignore") as f:
             self.left_lines = f.readlines()
+        self.left_file_path = left_path
         self.left_file_label.setText(f"📄 {left_path}")
         # Apply syntax highlighting
         SyntaxHighlighter(self.left_text.document(), left_path)
+        self.is_left_modified = False
+        self.undo_stack.clear()
+        self.redo_stack.clear()
+        self._current_region_index = -1
         self._update_views()
+        self._select_first_region()
 
     def load_right_file(self, right_path):
         with open(right_path, "r", encoding="utf-8", errors="ignore") as f:
             self.right_lines = f.readlines()
+        self.right_file_path = right_path
         self.right_file_label.setText(f"📄 {right_path}")
         # Apply syntax highlighting
         SyntaxHighlighter(self.right_text.document(), right_path)
+        self.is_right_modified = False
+        self.undo_stack.clear()
+        self.redo_stack.clear()
+        self._current_region_index = -1
         self._update_views()
+        self._select_first_region()
+
+    def _update_file_labels(self) -> None:
+        """Update file labels to show unsaved status."""
+        left_indicator = " *" if self.is_left_modified else ""
+        right_indicator = " *" if self.is_right_modified else ""
+        if self.left_file_path:
+            self.left_file_label.setText(f"📄 {self.left_file_path}{left_indicator}")
+        if self.right_file_path:
+            self.right_file_label.setText(f"📄 {self.right_file_path}{right_indicator}")
 
     def set_font(self, font):
         self.current_font = font
@@ -146,6 +194,8 @@ class FileCompareWidget(QWidget):
         right_lines_out = []
         left_formats = []
         right_formats = []
+        self._left_line_map = []  # Track original left_lines index for each rendered line
+        self._right_line_map = []  # Track original right_lines index for each rendered line
         region_map = []  # Store region diff info for each line (unused for full-line)
         # For each opcode, build output lines and region info
         for tag, i1, i2, j1, j2 in opcodes:
@@ -155,6 +205,8 @@ class FileCompareWidget(QWidget):
                     right_lines_out.append(self.right_lines[j].rstrip("\n"))
                     left_formats.append(None)
                     right_formats.append(None)
+                    self._left_line_map.append(i)
+                    self._right_line_map.append(j)
                     region_map.append(None)
             elif tag == "replace":
                 import difflib
@@ -171,6 +223,8 @@ class FileCompareWidget(QWidget):
                             right_lines_out.append(right_block[rj])
                             left_formats.append(None)
                             right_formats.append(None)
+                            self._left_line_map.append(i1 + li)
+                            self._right_line_map.append(j1 + rj)
                             region_map.append(None)
                     elif stag == "replace":
                         llen = si2 - si1
@@ -181,6 +235,10 @@ class FileCompareWidget(QWidget):
                             right_line = right_block[sj1 + k] if k < rlen else ""
                             left_lines_out.append(left_line)
                             right_lines_out.append(right_line)
+                            self._left_line_map.append(i1 + si1 + k if k < llen else -1)
+                            self._right_line_map.append(
+                                j1 + sj1 + k if k < rlen else -1
+                            )
                             region_map.append(None)
                             if left_line.rstrip() == right_line.rstrip():
                                 left_formats.append(None)
@@ -200,6 +258,8 @@ class FileCompareWidget(QWidget):
                             left_formats.append(None)
                             right_lines_out.append(right_block[k])
                             right_formats.append(insert_format)
+                            self._left_line_map.append(-1)
+                            self._right_line_map.append(j1 + k)
                             region_map.append(None)
                     elif stag == "delete":
                         for k in range(si1, si2):
@@ -207,6 +267,8 @@ class FileCompareWidget(QWidget):
                             left_formats.append(delete_format)
                             right_lines_out.append("")
                             right_formats.append(None)
+                            self._left_line_map.append(i1 + k)
+                            self._right_line_map.append(-1)
                             region_map.append(None)
             elif tag == "insert":
                 for k in range(j1, j2):
@@ -214,6 +276,8 @@ class FileCompareWidget(QWidget):
                     left_formats.append(None)
                     right_lines_out.append(self.right_lines[k].rstrip("\n"))
                     right_formats.append(insert_format)
+                    self._left_line_map.append(-1)
+                    self._right_line_map.append(k)
                     region_map.append(None)
             elif tag == "delete":
                 for k in range(i1, i2):
@@ -221,6 +285,8 @@ class FileCompareWidget(QWidget):
                     left_formats.append(delete_format)
                     right_lines_out.append("")
                     right_formats.append(None)
+                    self._left_line_map.append(k)
+                    self._right_line_map.append(-1)
                     region_map.append(None)
 
         # If aligned lines are identical, don't highlight them regardless of opcode
@@ -263,17 +329,21 @@ class FileCompareWidget(QWidget):
             if left_format or right_format
         ]
         self._change_regions = self._build_regions(self._change_line_indices)
-        self._current_region_index = -1
+        self._region_file_ranges = self._build_region_file_ranges(self._change_regions)
         self._current_region_lines = None
 
-        # Highlight the first region if there are any changes
+        # Preserve current region index - clamp to valid range
         if self._change_regions:
-            start_line, end_line = self._change_regions[0]
-            self._current_region_index = 0
-            self._set_change_selection(start_line, end_line)
+            # Keep index in valid range [0, len-1]
+            if self._current_region_index < 0:
+                self._current_region_index = 0
+            elif self._current_region_index >= len(self._change_regions):
+                self._current_region_index = len(self._change_regions) - 1
         else:
+            # No regions exist - clear selections and reset index
             self.left_text.setExtraSelections([])
             self.right_text.setExtraSelections([])
+            self._current_region_index = -1
 
         # Reset scroll position to top after rendering
         self.left_text.verticalScrollBar().setValue(0)
@@ -308,6 +378,38 @@ class FileCompareWidget(QWidget):
         # Add the last region
         regions.append((region_start, region_end))
         return regions
+
+    def _build_region_file_ranges(self, regions: list) -> list:
+        """Build the original file line ranges for each region.
+
+        Args:
+            regions: List of (start_line, end_line) tuples for rendered lines
+
+        Returns:
+            List of ((left_start, left_end), (right_start, right_end)) for original files
+        """
+        file_ranges = []
+        for start_line, end_line in regions:
+            left_indices = set()
+            right_indices = set()
+
+            for i in range(start_line, end_line + 1):
+                if i < len(self._left_line_map) and self._left_line_map[i] >= 0:
+                    left_indices.add(self._left_line_map[i])
+                if i < len(self._right_line_map) and self._right_line_map[i] >= 0:
+                    right_indices.add(self._right_line_map[i])
+
+            # Get contiguous ranges
+            left_range = (
+                (min(left_indices), max(left_indices)) if left_indices else (-1, -1)
+            )
+            right_range = (
+                (min(right_indices), max(right_indices)) if right_indices else (-1, -1)
+            )
+
+            file_ranges.append((left_range, right_range))
+
+        return file_ranges
 
     def _apply_light_palette(self, text_edit):
         palette = text_edit.palette()
@@ -426,6 +528,14 @@ class FileCompareWidget(QWidget):
         """Return the number of change regions."""
         return len(self._change_regions)
 
+    def _select_first_region(self) -> None:
+        """Select the first change region if it exists."""
+        if self._change_regions and self._current_region_index < 0:
+            self._current_region_index = 0
+            start_line, end_line = self._change_regions[0]
+            self._scroll_to_line(start_line)
+            self._set_change_selection(start_line, end_line)
+
     def next_change(self) -> None:
         """Navigate to the next change region."""
         if not self._change_regions:
@@ -451,6 +561,268 @@ class FileCompareWidget(QWidget):
             start_line, end_line = self._change_regions[self._current_region_index]
             self._scroll_to_line(start_line)
             self._set_change_selection(start_line, end_line)
+
+    def copy_to_right(self) -> None:
+        """Copy current region from left to right."""
+        if not self._change_regions or self._current_region_index < 0:
+            return
+        if self._current_region_index >= len(self._region_file_ranges):
+            return
+
+        # Save current state to undo stack before making changes
+        self._push_undo_state()
+        self.redo_stack.clear()
+
+        (left_start, left_end), (right_start, right_end) = self._region_file_ranges[
+            self._current_region_index
+        ]
+
+        # Get the rendered line position to help determine insertion point
+        rendered_start, rendered_end = self._change_regions[self._current_region_index]
+
+        # Copy, insert, or delete
+        if left_start >= 0 and left_end >= 0:
+            # Left has lines
+            if right_start >= 0 and right_end >= 0:
+                # Right also has lines - replace them with left
+                left_lines = self.left_lines[left_start : left_end + 1]
+                self.right_lines[right_start : right_end + 1] = left_lines
+            elif right_start < 0:
+                # Right has no lines (left insertion) - insert left lines to right
+                left_lines = self.left_lines[left_start : left_end + 1]
+                insert_pos = len(self.right_lines)  # Default: end of file
+
+                # Find the next valid right position from the right_line_map
+                for i in range(rendered_end + 1, len(self._right_line_map)):
+                    if self._right_line_map[i] >= 0:
+                        insert_pos = self._right_line_map[i]
+                        break
+
+                # Insert at the calculated position
+                self.right_lines[insert_pos:insert_pos] = left_lines
+        elif left_start < 0 and right_start >= 0 and right_end >= 0:
+            # Right has lines but left doesn't (right insertion) - delete from right
+            del self.right_lines[right_start : right_end + 1]
+
+        self.is_right_modified = True
+        self._update_file_labels()
+        self._update_views()
+
+        # After update, the copied region is gone, so current index points to next region
+        if (
+            self._change_regions
+            and self._current_region_index >= 0
+            and self._current_region_index < len(self._change_regions)
+        ):
+            start_line, end_line = self._change_regions[self._current_region_index]
+            self._scroll_to_line(start_line)
+            self._set_change_selection(start_line, end_line)
+
+    def copy_to_left(self) -> None:
+        """Copy current region from right to left."""
+        if not self._change_regions or self._current_region_index < 0:
+            return
+        if self._current_region_index >= len(self._region_file_ranges):
+            return
+
+        # Save current state to undo stack before making changes
+        self._push_undo_state()
+        self.redo_stack.clear()
+
+        (left_start, left_end), (right_start, right_end) = self._region_file_ranges[
+            self._current_region_index
+        ]
+
+        # Get the rendered line position to help determine insertion point
+        rendered_start, rendered_end = self._change_regions[self._current_region_index]
+
+        # Copy, insert, or delete
+        if right_start >= 0 and right_end >= 0:
+            # Right has lines
+            if left_start >= 0 and left_end >= 0:
+                # Left also has lines - replace them with right
+                right_lines = self.right_lines[right_start : right_end + 1]
+                self.left_lines[left_start : left_end + 1] = right_lines
+            elif left_start < 0:
+                # Left has no lines (right insertion) - insert right lines to left
+                right_lines = self.right_lines[right_start : right_end + 1]
+                insert_pos = len(self.left_lines)  # Default: end of file
+
+                # Find the next valid left position from the left_line_map
+                for i in range(rendered_end + 1, len(self._left_line_map)):
+                    if self._left_line_map[i] >= 0:
+                        insert_pos = self._left_line_map[i]
+                        break
+
+                # Insert at the calculated position
+                self.left_lines[insert_pos:insert_pos] = right_lines
+        elif right_start < 0 and left_start >= 0 and left_end >= 0:
+            # Left has lines but right doesn't (left insertion) - delete from left
+            del self.left_lines[left_start : left_end + 1]
+
+        self.is_left_modified = True
+        self._update_file_labels()
+        self._update_views()
+
+        # After update, the copied region is gone, so current index points to next region
+        if (
+            self._change_regions
+            and self._current_region_index >= 0
+            and self._current_region_index < len(self._change_regions)
+        ):
+            start_line, end_line = self._change_regions[self._current_region_index]
+            self._scroll_to_line(start_line)
+            self._set_change_selection(start_line, end_line)
+
+    def _push_undo_state(self) -> None:
+        """Save current state to undo stack."""
+        # Store copies of the current lines and current region index
+        state = (
+            self.left_lines.copy(),
+            self.right_lines.copy(),
+            self._current_region_index,
+        )
+        self.undo_stack.append(state)
+
+        # Limit undo history to max_undo_history
+        if len(self.undo_stack) > self.max_undo_history:
+            self.undo_stack.pop(0)
+
+    def undo(self) -> None:
+        """Undo the last copy operation."""
+        if not self.undo_stack:
+            return
+
+        # Save current state to redo stack
+        current_state = (
+            self.left_lines.copy(),
+            self.right_lines.copy(),
+            self._current_region_index,
+        )
+        self.redo_stack.append(current_state)
+
+        # Restore previous state
+        left_lines, right_lines, region_index = self.undo_stack.pop()
+        self.left_lines = left_lines
+        self.right_lines = right_lines
+
+        # Reload files to check if there are unsaved changes
+        if self.left_file_path:
+            try:
+                with open(
+                    self.left_file_path, "r", encoding="utf-8", errors="ignore"
+                ) as f:
+                    saved_left_lines = f.readlines()
+                self.is_left_modified = self.left_lines != saved_left_lines
+            except:
+                self.is_left_modified = True
+
+        if self.right_file_path:
+            try:
+                with open(
+                    self.right_file_path, "r", encoding="utf-8", errors="ignore"
+                ) as f:
+                    saved_right_lines = f.readlines()
+                self.is_right_modified = self.right_lines != saved_right_lines
+            except:
+                self.is_right_modified = True
+
+        self._update_file_labels()
+        self._update_views()
+
+        # Restore the region selection that was affected
+        self._current_region_index = region_index
+        if 0 <= self._current_region_index < len(self._change_regions):
+            start_line, end_line = self._change_regions[self._current_region_index]
+            self._scroll_to_line(start_line)
+            self._set_change_selection(start_line, end_line)
+
+    def redo(self) -> None:
+        """Redo the last undone operation."""
+        if not self.redo_stack:
+            return
+
+        # Save current state to undo stack
+        current_state = (
+            self.left_lines.copy(),
+            self.right_lines.copy(),
+            self._current_region_index,
+        )
+        self.undo_stack.append(current_state)
+
+        # Restore redo state
+        left_lines, right_lines, region_index = self.redo_stack.pop()
+        self.left_lines = left_lines
+        self.right_lines = right_lines
+
+        # Reload files to check if there are unsaved changes
+        if self.left_file_path:
+            try:
+                with open(
+                    self.left_file_path, "r", encoding="utf-8", errors="ignore"
+                ) as f:
+                    saved_left_lines = f.readlines()
+                self.is_left_modified = self.left_lines != saved_left_lines
+            except:
+                self.is_left_modified = True
+
+        if self.right_file_path:
+            try:
+                with open(
+                    self.right_file_path, "r", encoding="utf-8", errors="ignore"
+                ) as f:
+                    saved_right_lines = f.readlines()
+                self.is_right_modified = self.right_lines != saved_right_lines
+            except:
+                self.is_right_modified = True
+
+        self._update_file_labels()
+        self._update_views()
+
+        # Restore the region selection that was affected
+        self._current_region_index = region_index
+        if 0 <= self._current_region_index < len(self._change_regions):
+            start_line, end_line = self._change_regions[self._current_region_index]
+            self._scroll_to_line(start_line)
+            self._set_change_selection(start_line, end_line)
+
+    def save_left_file(self) -> bool:
+        """Save the left file. Returns True if successful."""
+        if not self.left_file_path:
+            return False
+
+        try:
+            with open(self.left_file_path, "w", encoding="utf-8") as f:
+                f.writelines(self.left_lines)
+            self.is_left_modified = False
+            self._update_file_labels()
+            return True
+        except Exception as e:
+            print(f"Error saving left file: {e}")
+            return False
+
+    def save_right_file(self) -> bool:
+        """Save the right file. Returns True if successful."""
+        if not self.right_file_path:
+            return False
+
+        try:
+            with open(self.right_file_path, "w", encoding="utf-8") as f:
+                f.writelines(self.right_lines)
+            self.is_right_modified = False
+            self._update_file_labels()
+            return True
+        except Exception as e:
+            print(f"Error saving right file: {e}")
+            return False
+
+    def can_undo(self) -> bool:
+        """Check if undo is available."""
+        return len(self.undo_stack) > 0
+
+    def can_redo(self) -> bool:
+        """Check if redo is available."""
+        return len(self.redo_stack) > 0
 
     def set_diff_engine(self, engine_name: str):
         """Set the diff engine to use (myers or smart)."""
