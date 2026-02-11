@@ -15,6 +15,7 @@ class FileCompareWidget(QWidget):
         self.left_lines = []
         self.right_lines = []
         self.diff_engine = "smart"  # Default to Smart Block Diff engine
+        self._is_syncing_scroll = False
 
     def init_ui(self):
         layout = QHBoxLayout(self)
@@ -30,6 +31,10 @@ class FileCompareWidget(QWidget):
         self.left_text.setFocusPolicy(Qt.NoFocus)  # Disable focus highlighting
         self._apply_light_palette(self.left_text)
         self.left_panel.addWidget(self.left_text)
+        # Keep scrolling in sync
+        self.left_text.verticalScrollBar().valueChanged.connect(
+            lambda value: self._sync_scroll(self.left_text, self.right_text, value)
+        )
         # Right panel
         self.right_panel = QVBoxLayout()
         self.right_text = QTextEdit()
@@ -42,6 +47,10 @@ class FileCompareWidget(QWidget):
         self.right_text.setFocusPolicy(Qt.NoFocus)  # Disable focus highlighting
         self._apply_light_palette(self.right_text)
         self.right_panel.addWidget(self.right_text)
+        # Keep scrolling in sync
+        self.right_text.verticalScrollBar().valueChanged.connect(
+            lambda value: self._sync_scroll(self.right_text, self.left_text, value)
+        )
         # Merge controls panel
         self.controls_panel = QVBoxLayout()
         self.controls_panel.setAlignment(Qt.AlignTop)
@@ -205,6 +214,21 @@ class FileCompareWidget(QWidget):
         cursor.insertText(line)
         cursor.insertText("\n")
         text_edit.setTextCursor(cursor)
+
+    def _sync_scroll(self, source_text, target_text, value):
+        if self._is_syncing_scroll:
+            return
+        self._is_syncing_scroll = True
+        try:
+            source_bar = source_text.verticalScrollBar()
+            target_bar = target_text.verticalScrollBar()
+            source_max = max(source_bar.maximum(), 1)
+            target_max = target_bar.maximum()
+            ratio = value / source_max
+            target_value = int(round(ratio * target_max))
+            target_bar.setValue(target_value)
+        finally:
+            self._is_syncing_scroll = False
 
     def set_diff_engine(self, engine_name: str):
         """Set the diff engine to use (myers or smart)."""
