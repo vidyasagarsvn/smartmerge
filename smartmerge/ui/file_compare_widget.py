@@ -226,6 +226,10 @@ class FileCompareWidget(QWidget):
             else:
                 self._append_plain(self.right_text, right_line_text)
 
+        # Reset scroll position to top after rendering
+        self.left_text.verticalScrollBar().setValue(0)
+        self.right_text.verticalScrollBar().setValue(0)
+
     def _apply_light_palette(self, text_edit):
         palette = text_edit.palette()
         palette.setColor(QPalette.Base, QColor("#ffffff"))
