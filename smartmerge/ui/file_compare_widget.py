@@ -8,10 +8,12 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QTextCharFormat, QColor, QPalette
+from PySide6.QtGui import QTextCharFormat, QColor, QPalette, QTextCursor, QTextDocument
 from smartmerge.core.diff_engine import myers_opcodes, normalize_opcodes
 from smartmerge.core.smart_diff_engine import smart_diff
 from smartmerge.ui.syntax_highlighter import SyntaxHighlighter
+from smartmerge.ui.search_dialog import SearchDialog
+from smartmerge.ui.go_to_line_dialog import GoToLineDialog
 
 
 class FileCompareWidget(QWidget):
@@ -42,6 +44,9 @@ class FileCompareWidget(QWidget):
         self.undo_stack = []
         self.redo_stack = []
         self.max_undo_history = 50
+
+        # Track current theme
+        self.current_theme = "light"
 
     def init_ui(self):
         layout = QHBoxLayout(self)
@@ -302,7 +307,11 @@ class FileCompareWidget(QWidget):
                     self.left_text, line_num_text + left_line_text, left_format
                 )
             else:
-                self._append_plain(self.left_text, line_num_text + left_line_text)
+                self._append_plain(
+                    self.left_text,
+                    line_num_text + left_line_text,
+                    is_line_number_row=True,
+                )
         for idx, (right_line_text, right_format) in enumerate(
             zip(right_lines_out, right_formats)
         ):
@@ -313,7 +322,11 @@ class FileCompareWidget(QWidget):
                     self.right_text, line_num_text + right_line_text, right_format
                 )
             else:
-                self._append_plain(self.right_text, line_num_text + right_line_text)
+                self._append_plain(
+                    self.right_text,
+                    line_num_text + right_line_text,
+                    is_line_number_row=True,
+                )
 
         self._change_line_indices = [
             idx
@@ -429,7 +442,7 @@ class FileCompareWidget(QWidget):
         cursor.insertText("\n")
         text_edit.setTextCursor(cursor)
 
-    def _append_plain(self, text_edit, line):
+    def _append_plain(self, text_edit, line, is_line_number_row=False):
         from PySide6.QtGui import QTextCursor
         from PySide6.QtGui import QTextBlockFormat
         from PySide6.QtGui import QTextCharFormat
@@ -439,10 +452,32 @@ class FileCompareWidget(QWidget):
         block_format = QTextBlockFormat()
         block_format.clearBackground()
         cursor.setBlockFormat(block_format)
-        char_format = QTextCharFormat()
-        if self.current_font:
-            char_format.setFont(self.current_font)
-        cursor.insertText(line, char_format)
+
+        # Style line numbers with subtle background
+        if is_line_number_row:
+            # Line number part - with subtle background (first 7 chars: "   N | ")
+            line_num_part = line[:7]
+            content_part = line[7:]
+
+            # Format for line number
+            line_num_format = QTextCharFormat()
+            if self.current_font:
+                line_num_format.setFont(self.current_font)
+            line_num_format.setBackground(QColor("#f3f4f6"))  # Light gray background
+            line_num_format.setForeground(QColor("#6b7280"))  # Gray text
+            cursor.insertText(line_num_part, line_num_format)
+
+            # Format for content
+            content_format = QTextCharFormat()
+            if self.current_font:
+                content_format.setFont(self.current_font)
+            cursor.insertText(content_part, content_format)
+        else:
+            char_format = QTextCharFormat()
+            if self.current_font:
+                char_format.setFont(self.current_font)
+            cursor.insertText(line, char_format)
+
         cursor.insertText("\n")
         text_edit.setTextCursor(cursor)
 
@@ -828,7 +863,7 @@ class FileCompareWidget(QWidget):
             total_regions = len(self._change_regions)
             status_parts.append(f"Region {region_num}/{total_regions}")
         else:
-            status_parts.append("No differences")
+            status_parts.append("No differences found")
             return " | ".join(status_parts)
 
         # File sizes
@@ -861,3 +896,185 @@ class FileCompareWidget(QWidget):
             self.diff_engine = engine_name
             # Re-render with the new engine
             self._update_views()
+
+    def set_theme(self, theme: str):
+        """Set the current theme (light or dark)."""
+        self.current_theme = theme
+        # Close and recreate search dialog with new theme if it exists
+        if hasattr(self, "_search_dialog") and self._search_dialog is not None:
+            self._search_dialog.close()
+            self._search_dialog = None
+
+    def show_search_dialog(self) -> SearchDialog:
+        """Show the search dialog."""
+        if not hasattr(self, "_search_dialog") or self._search_dialog is None:
+            self._search_dialog = SearchDialog(self, theme=self.current_theme)
+            self._search_dialog.search_requested.connect(self._on_search_requested)
+            self._search_dialog.find_next.connect(self._find_next)
+            self._search_dialog.find_prev.connect(self._find_prev)
+        self._search_dialog.show()
+        self._search_dialog.raise_()
+        self._search_dialog.activateWindow()
+        return self._search_dialog
+
+    def _on_search_requested(self, text: str, case_sensitive: bool):
+        """Handle search request."""
+        self._search_text = text
+        self._search_case_sensitive = case_sensitive
+        self._search_position = -1
+        # Start search from current position in active text edit
+        if self.left_text.hasFocus():
+            self._search_in_text_edit = self.left_text
+        elif self.right_text.hasFocus():
+            self._search_in_text_edit = self.right_text
+        else:
+            self._search_in_text_edit = self.left_text
+        self._find_next()
+
+    def _find_next(self):
+        """Find next occurrence of search text."""
+        if not hasattr(self, "_search_text") or not self._search_text:
+            return
+
+        # Determine search flags
+        flags = QTextDocument.FindFlags(0)
+        if self._search_case_sensitive:
+            flags |= QTextDocument.FindCaseSensitively
+
+        # Get the currently focused text edit, or use last used one
+        if not hasattr(self, "_search_in_text_edit"):
+            self._search_in_text_edit = self.left_text
+
+        current_cursor = self._search_in_text_edit.textCursor()
+        doc = self._search_in_text_edit.document()
+
+        # Start search from current position
+        search_cursor = doc.find(self._search_text, current_cursor, flags)
+
+        if search_cursor.hasSelection():
+            # Found in current text edit
+            self._search_in_text_edit.setTextCursor(search_cursor)
+            return
+
+        # Not found in current text edit, try the other one
+        other_text_edit = (
+            self.right_text
+            if self._search_in_text_edit == self.left_text
+            else self.left_text
+        )
+        other_doc = other_text_edit.document()
+        search_cursor = other_doc.find(self._search_text, QTextCursor(other_doc), flags)
+
+        if search_cursor.hasSelection():
+            # Found in other text edit
+            self._search_in_text_edit = other_text_edit
+            other_text_edit.setTextCursor(search_cursor)
+            return
+
+        # Wrap around: search from beginning of current text edit
+        search_cursor = doc.find(self._search_text, QTextCursor(doc), flags)
+        if search_cursor.hasSelection():
+            self._search_in_text_edit.setTextCursor(search_cursor)
+            return
+
+        # Wrap around: search from beginning of other text edit
+        search_cursor = other_doc.find(self._search_text, QTextCursor(other_doc), flags)
+        if search_cursor.hasSelection():
+            self._search_in_text_edit = other_text_edit
+            other_text_edit.setTextCursor(search_cursor)
+
+    def _find_prev(self):
+        """Find previous occurrence of search text."""
+        if not hasattr(self, "_search_text") or not self._search_text:
+            return
+
+        # Determine search flags
+        flags = QTextDocument.FindFlags(QTextDocument.FindBackward)
+        if self._search_case_sensitive:
+            flags |= QTextDocument.FindCaseSensitively
+
+        # Get the currently focused text edit, or use last used one
+        if not hasattr(self, "_search_in_text_edit"):
+            self._search_in_text_edit = self.left_text
+
+        current_cursor = self._search_in_text_edit.textCursor()
+
+        # For backward search, move cursor to start of current selection
+        if current_cursor.hasSelection():
+            current_cursor.setPosition(current_cursor.selectionStart())
+
+        doc = self._search_in_text_edit.document()
+
+        # Start backward search from current position
+        search_cursor = doc.find(self._search_text, current_cursor, flags)
+
+        if search_cursor.hasSelection():
+            # Found in current text edit
+            self._search_in_text_edit.setTextCursor(search_cursor)
+            return
+
+        # Not found in current text edit, try the other one
+        other_text_edit = (
+            self.right_text
+            if self._search_in_text_edit == self.left_text
+            else self.left_text
+        )
+        other_doc = other_text_edit.document()
+
+        # Start from end of other document
+        end_cursor = QTextCursor(other_doc)
+        end_cursor.movePosition(QTextCursor.End)
+        search_cursor = other_doc.find(self._search_text, end_cursor, flags)
+
+        if search_cursor.hasSelection():
+            # Found in other text edit
+            self._search_in_text_edit = other_text_edit
+            other_text_edit.setTextCursor(search_cursor)
+            return
+
+        # Wrap around: search from end of current text edit
+        end_cursor = QTextCursor(doc)
+        end_cursor.movePosition(QTextCursor.End)
+        search_cursor = doc.find(self._search_text, end_cursor, flags)
+        if search_cursor.hasSelection():
+            self._search_in_text_edit.setTextCursor(search_cursor)
+            return
+
+        # Wrap around: search from end of other text edit
+        end_cursor = QTextCursor(other_doc)
+        end_cursor.movePosition(QTextCursor.End)
+        search_cursor = other_doc.find(self._search_text, end_cursor, flags)
+        if search_cursor.hasSelection():
+            self._search_in_text_edit = other_text_edit
+            other_text_edit.setTextCursor(search_cursor)
+
+    def show_go_to_line_dialog(self):
+        """Show the go to line dialog."""
+        max_lines = max(len(self.left_lines), len(self.right_lines), 100)
+        dialog = GoToLineDialog(self, max_lines)
+        if dialog.exec():
+            line_num = dialog.get_line_number()
+            if line_num > 0:
+                self.go_to_line(line_num - 1)  # Convert to 0-indexed
+
+    def go_to_line(self, line_index: int):
+        """Navigate to a specific line in both text panes."""
+        if line_index < 0:
+            return
+
+        # Find the block at the given line
+        doc_left = self.left_text.document()
+        doc_right = self.right_text.document()
+
+        block_left = doc_left.findBlockByLineNumber(line_index)
+        block_right = doc_right.findBlockByLineNumber(line_index)
+
+        if block_left.isValid():
+            cursor_left = QTextCursor(block_left)
+            self.left_text.setTextCursor(cursor_left)
+            self.left_text.ensureCursorVisible()
+
+        if block_right.isValid():
+            cursor_right = QTextCursor(block_right)
+            self.right_text.setTextCursor(cursor_right)
+            self.right_text.ensureCursorVisible()

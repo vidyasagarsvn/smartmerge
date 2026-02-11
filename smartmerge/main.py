@@ -41,6 +41,7 @@ class MainWindow(QMainWindow):
         self.back_action: QAction | None = (
             None  # Reference to back action for enabling/disabling
         )
+        self.current_theme: str = "light"  # Track current theme (light or dark)
 
         # Create stacked widget to switch between file and folder views
         self.stacked_widget = QStackedWidget()
@@ -69,6 +70,9 @@ class MainWindow(QMainWindow):
         self.settings = QSettings("SmartMerge", "SmartMerge")
         self.last_left_path = self.settings.value("last_left_path", "", type=str)
         self.last_right_path = self.settings.value("last_right_path", "", type=str)
+
+        # Apply default light theme
+        self._apply_light_theme()
 
     def _set_app_icon(self):
         try:
@@ -142,8 +146,37 @@ class MainWindow(QMainWindow):
         font_action.triggered.connect(self.open_font_dialog)
         edit_menu.addAction(font_action)
 
+        edit_menu.addSeparator()
+
+        # Search action
+        search_action = QAction("Find...", self)
+        search_action.setShortcut(_get_platform_shortcut("Ctrl+F", "Cmd+F"))
+        search_action.triggered.connect(self._open_search)
+        edit_menu.addAction(search_action)
+
+        # Go to line action (disabled - requires inline editing)
+        # go_to_line_action = QAction("Go to Line...", self)
+        # go_to_line_action.setShortcut(_get_platform_shortcut("Ctrl+G", "Cmd+G"))
+        # go_to_line_action.triggered.connect(self._open_go_to_line)
+        # edit_menu.addAction(go_to_line_action)
+
         # Options menu
         options_menu = menubar.addMenu("Options")
+
+        # Theme submenu (under Options)
+        theme_menu = options_menu.addMenu("Theme")
+        self.light_mode_action = QAction("Light Mode", self)
+        self.light_mode_action.setCheckable(True)
+        self.light_mode_action.setChecked(True)  # Default theme
+        self.light_mode_action.triggered.connect(lambda: self._set_theme("light"))
+
+        self.dark_mode_action = QAction("Dark Mode", self)
+        self.dark_mode_action.setCheckable(True)
+        self.dark_mode_action.setChecked(False)
+        self.dark_mode_action.triggered.connect(lambda: self._set_theme("dark"))
+
+        theme_menu.addAction(self.light_mode_action)
+        theme_menu.addAction(self.dark_mode_action)
 
         navigate_menu = menubar.addMenu("Navigate")
         next_change_action = QAction("Next Change", self)
@@ -189,15 +222,15 @@ class MainWindow(QMainWindow):
         else:  # Folder comparison
             current_font = self.folder_compare.table.font()
 
-        result = QFontDialog.getFont(current_font, self, "Select Font")
-        if isinstance(result, tuple) and len(result) == 2:
-            first, second = result
-            if isinstance(first, bool):
-                ok, font = first, second
-            else:
-                font, ok = first, second
-        else:
-            font, ok = result, True
+        dialog = QFontDialog(current_font, self)
+        dialog.setWindowTitle("Select Font")
+        # Center dialog on parent window
+        dialog.move(
+            self.x() + (self.width() - dialog.width()) // 2,
+            self.y() + (self.height() - dialog.height()) // 2,
+        )
+        ok = dialog.exec() == QFontDialog.Accepted
+        font = dialog.selectedFont() if ok else current_font
 
         if ok:
             self.file_compare.set_font(font)
@@ -388,6 +421,70 @@ class MainWindow(QMainWindow):
         self.statusBar.showMessage(
             f"Switched to {engine_name.capitalize()} Diff Engine"
         )
+
+    def _set_theme(self, theme_name: str):
+        """Set the application theme (light or dark mode)."""
+        # Update menu checkmarks
+        if theme_name == "light":
+            self.light_mode_action.setChecked(True)
+            self.dark_mode_action.setChecked(False)
+            self.current_theme = "light"
+            self.file_compare.set_theme("light")
+            self.folder_compare.set_theme("light")
+            self._apply_light_theme()
+        elif theme_name == "dark":
+            self.light_mode_action.setChecked(False)
+            self.dark_mode_action.setChecked(True)
+            self.current_theme = "dark"
+            self.file_compare.set_theme("dark")
+            self.folder_compare.set_theme("dark")
+            self._apply_dark_theme()
+
+        self.statusBar.showMessage(f"Switched to {theme_name.capitalize()} Mode")
+
+    def _apply_light_theme(self):
+        """Apply light theme stylesheet."""
+        light_stylesheet = """
+            QMainWindow { background-color: #ffffff; color: #000000; }
+            QMenuBar { background-color: #f5f5f5; color: #000000; border-bottom: 1px solid #e0e0e0; }
+            QMenuBar::item:selected { background-color: #e8e8e8; }
+            QMenu { background-color: #ffffff; color: #000000; border: 1px solid #d0d0d0; }
+            QMenu::item:selected { background-color: #e8e8e8; }
+            QTextEdit { background-color: #ffffff; color: #000000; border: 1px solid #d0d0d0; }
+            QStatusBar { background-color: #f5f5f5; color: #000000; border-top: 1px solid #e0e0e0; }
+            QLineEdit { background-color: #ffffff; color: #000000; border: 1px solid #d0d0d0; }
+            QPushButton { background-color: #f0f0f0; color: #000000; border: 1px solid #d0d0d0; border-radius: 4px; padding: 5px; }
+            QPushButton:hover { background-color: #e0e0e0; }
+            QPushButton:pressed { background-color: #d0d0d0; }
+        """
+        self.setStyleSheet(light_stylesheet)
+
+    def _apply_dark_theme(self):
+        """Apply dark theme stylesheet."""
+        dark_stylesheet = """
+            QMainWindow { background-color: #1e1e1e; color: #e0e0e0; }
+            QMenuBar { background-color: #2d2d2d; color: #e0e0e0; border-bottom: 1px solid #3d3d3d; }
+            QMenuBar::item:selected { background-color: #3d3d3d; }
+            QMenu { background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #3d3d3d; }
+            QMenu::item:selected { background-color: #3d3d3d; }
+            QTextEdit { background-color: #1e1e1e; color: #e0e0e0; border: 1px solid #3d3d3d; }
+            QStatusBar { background-color: #2d2d2d; color: #e0e0e0; border-top: 1px solid #3d3d3d; }
+            QLineEdit { background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #3d3d3d; }
+            QPushButton { background-color: #3d3d3d; color: #e0e0e0; border: 1px solid #4d4d4d; border-radius: 4px; padding: 5px; }
+            QPushButton:hover { background-color: #4d4d4d; }
+            QPushButton:pressed { background-color: #5d5d5d; }
+        """
+        self.setStyleSheet(dark_stylesheet)
+
+    def _open_search(self):
+        """Open the search/find dialog."""
+        if self.stacked_widget.currentIndex() == 0:
+            self.file_compare.show_search_dialog()
+
+    def _open_go_to_line(self):
+        """Open the go to line dialog."""
+        if self.stacked_widget.currentIndex() == 0:
+            self.file_compare.show_go_to_line_dialog()
 
 
 def main():

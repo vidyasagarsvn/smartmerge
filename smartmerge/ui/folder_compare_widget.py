@@ -234,3 +234,7 @@ class FolderCompareWidget(QWidget):
     def set_font(self, font: QFont):
         """Update font for table display."""
         self.table.setFont(font)
+
+    def set_theme(self, theme: str):
+        """Set the current theme (light or dark). Placeholder for future theme support."""
+        pass
