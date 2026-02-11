@@ -16,9 +16,9 @@ class FileCompareWidget(QWidget):
         self.right_lines = []
         self.diff_engine = "smart"  # Default to Smart Block Diff engine
         self._is_syncing_scroll = False
-        self._change_line_indices = []
-        self._current_change_index = -1
-        self._current_change_line = None
+        self._change_regions = []  # List of (start_line, end_line) tuples for each change region
+        self._current_region_index = -1
+        self._current_region_lines = None
 
     def init_ui(self):
         layout = QHBoxLayout(self)
@@ -236,14 +236,50 @@ class FileCompareWidget(QWidget):
             )
             if left_format or right_format
         ]
-        self._current_change_index = -1
-        self._current_change_line = None
+        self._change_regions = self._build_regions(self._change_line_indices)
+        self._current_region_index = -1
+        self._current_region_lines = None
         self.left_text.setExtraSelections([])
         self.right_text.setExtraSelections([])
+
+        # Build regions from change indices (group consecutive changed lines)
+        self._change_regions = self._build_regions(self._change_line_indices)
+        self._current_region_index = -1
+        self._current_region_lines = None
 
         # Reset scroll position to top after rendering
         self.left_text.verticalScrollBar().setValue(0)
         self.right_text.verticalScrollBar().setValue(0)
+
+    def _build_regions(self, change_indices: list) -> list:
+        """Group consecutive changed line indices into regions.
+
+        Args:
+            change_indices: List of line indices that have changes
+
+        Returns:
+            List of (start_line, end_line) tuples representing contiguous change regions
+        """
+        if not change_indices:
+            return []
+
+        regions = []
+        region_start = change_indices[0]
+        region_end = change_indices[0]
+
+        for idx in change_indices[1:]:
+            if idx == region_end + 1:
+                # Consecutive index, extend current region
+                region_end = idx
+            else:
+                # Gap found, save current region and start a new one
+                regions.append((region_start, region_end))
+                region_start = idx
+                region_end = idx
+
+        # Add the last region
+        regions.append((region_start, region_end))
+        return regions
 
     def _apply_light_palette(self, text_edit):
         palette = text_edit.palette()
@@ -302,10 +338,10 @@ class FileCompareWidget(QWidget):
             self._is_syncing_scroll = False
 
     def _scroll_to_line(self, line_index: int) -> None:
+        """Scroll both text edits to show the given line with 3 lines of context above and below."""
         if line_index < 0:
             return
 
-        # Scroll to show context: 3 lines above and below the target
         context_offset = 3
 
         for text_edit in (self.left_text, self.right_text):
@@ -332,49 +368,61 @@ class FileCompareWidget(QWidget):
                 text_edit.setTextCursor(cursor)
                 text_edit.ensureCursorVisible()
 
-        self._set_change_selection(line_index)
-
-    def _set_change_selection(self, line_index: int) -> None:
+    def _set_change_selection(self, start_line: int, end_line: int) -> None:
+        """Highlight a range of lines with the current region selection color."""
         from PySide6.QtGui import QTextCursor
 
-        if self._current_change_line == line_index:
+        if self._current_region_lines == (start_line, end_line):
             return
-        self._current_change_line = line_index
+        self._current_region_lines = (start_line, end_line)
 
         selection_format = QTextCharFormat()
         selection_format.setBackground(QColor("#bfdbfe"))
         selection_format.setProperty(QTextCharFormat.FullWidthSelection, True)
 
         for text_edit in (self.left_text, self.right_text):
-            block = text_edit.document().findBlockByNumber(line_index)
-            if not block.isValid():
-                text_edit.setExtraSelections([])
-                continue
-            cursor = QTextCursor(block)
-            cursor.select(QTextCursor.LineUnderCursor)
-            selection = QTextEdit.ExtraSelection()
-            selection.cursor = cursor
-            selection.format = selection_format
-            text_edit.setExtraSelections([selection])
+            selections = []
+            for line_idx in range(start_line, end_line + 1):
+                block = text_edit.document().findBlockByNumber(line_idx)
+                if not block.isValid():
+                    continue
+                cursor = QTextCursor(block)
+                cursor.select(QTextCursor.LineUnderCursor)
+                selection = QTextEdit.ExtraSelection()
+                selection.cursor = cursor
+                selection.format = selection_format
+                selections.append(selection)
+            text_edit.setExtraSelections(selections)
 
     def get_change_count(self) -> int:
-        return len(self._change_line_indices)
+        """Return the number of change regions."""
+        return len(self._change_regions)
 
     def next_change(self) -> None:
-        if not self._change_line_indices:
+        """Navigate to the next change region."""
+        if not self._change_regions:
             return
-        if self._current_change_index < len(self._change_line_indices) - 1:
-            self._current_change_index += 1
-        self._scroll_to_line(self._change_line_indices[self._current_change_index])
+        # Move to next region if not at the end
+        if self._current_region_index < len(self._change_regions) - 1:
+            self._current_region_index += 1
+            start_line, end_line = self._change_regions[self._current_region_index]
+            self._scroll_to_line(start_line)
+            self._set_change_selection(start_line, end_line)
 
     def previous_change(self) -> None:
-        if not self._change_line_indices:
+        """Navigate to the previous change region."""
+        if not self._change_regions:
             return
-        if self._current_change_index > 0:
-            self._current_change_index -= 1
-        elif self._current_change_index == -1:
-            self._current_change_index = 0
-        self._scroll_to_line(self._change_line_indices[self._current_change_index])
+        # Move to previous region if not at the beginning
+        if self._current_region_index > 0:
+            self._current_region_index -= 1
+        elif self._current_region_index == -1:
+            self._current_region_index = 0
+
+        if self._current_region_index >= 0:
+            start_line, end_line = self._change_regions[self._current_region_index]
+            self._scroll_to_line(start_line)
+            self._set_change_selection(start_line, end_line)
 
     def set_diff_engine(self, engine_name: str):
         """Set the diff engine to use (myers or smart)."""
