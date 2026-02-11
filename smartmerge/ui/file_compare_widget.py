@@ -239,13 +239,15 @@ class FileCompareWidget(QWidget):
         self._change_regions = self._build_regions(self._change_line_indices)
         self._current_region_index = -1
         self._current_region_lines = None
-        self.left_text.setExtraSelections([])
-        self.right_text.setExtraSelections([])
 
-        # Build regions from change indices (group consecutive changed lines)
-        self._change_regions = self._build_regions(self._change_line_indices)
-        self._current_region_index = -1
-        self._current_region_lines = None
+        # Highlight the first region if there are any changes
+        if self._change_regions:
+            start_line, end_line = self._change_regions[0]
+            self._current_region_index = 0
+            self._set_change_selection(start_line, end_line)
+        else:
+            self.left_text.setExtraSelections([])
+            self.right_text.setExtraSelections([])
 
         # Reset scroll position to top after rendering
         self.left_text.verticalScrollBar().setValue(0)
