@@ -16,6 +16,9 @@ class FileCompareWidget(QWidget):
         self.right_lines = []
         self.diff_engine = "smart"  # Default to Smart Block Diff engine
         self._is_syncing_scroll = False
+        self._change_line_indices = []
+        self._current_change_index = -1
+        self._current_change_line = None
 
     def init_ui(self):
         layout = QHBoxLayout(self)
@@ -226,6 +229,18 @@ class FileCompareWidget(QWidget):
             else:
                 self._append_plain(self.right_text, right_line_text)
 
+        self._change_line_indices = [
+            idx
+            for idx, (left_format, right_format) in enumerate(
+                zip(left_formats, right_formats)
+            )
+            if left_format or right_format
+        ]
+        self._current_change_index = -1
+        self._current_change_line = None
+        self.left_text.setExtraSelections([])
+        self.right_text.setExtraSelections([])
+
         # Reset scroll position to top after rendering
         self.left_text.verticalScrollBar().setValue(0)
         self.right_text.verticalScrollBar().setValue(0)
@@ -285,6 +300,81 @@ class FileCompareWidget(QWidget):
             target_bar.setValue(target_value)
         finally:
             self._is_syncing_scroll = False
+
+    def _scroll_to_line(self, line_index: int) -> None:
+        if line_index < 0:
+            return
+
+        # Scroll to show context: 3 lines above and below the target
+        context_offset = 3
+
+        for text_edit in (self.left_text, self.right_text):
+            doc = text_edit.document()
+            total_blocks = doc.blockCount()
+
+            # Determine scroll position with context on both sides
+            scroll_target = max(0, line_index - context_offset)
+            scroll_end = min(total_blocks - 1, line_index + context_offset)
+
+            # Move cursor to scroll_end to ensure bottom context is visible
+            end_block = doc.findBlockByNumber(scroll_end)
+            if end_block.isValid():
+                cursor = text_edit.textCursor()
+                cursor.setPosition(end_block.position())
+                text_edit.setTextCursor(cursor)
+                text_edit.ensureCursorVisible()
+
+            # Then move to scroll_target to show top context
+            start_block = doc.findBlockByNumber(scroll_target)
+            if start_block.isValid():
+                cursor = text_edit.textCursor()
+                cursor.setPosition(start_block.position())
+                text_edit.setTextCursor(cursor)
+                text_edit.ensureCursorVisible()
+
+        self._set_change_selection(line_index)
+
+    def _set_change_selection(self, line_index: int) -> None:
+        from PySide6.QtGui import QTextCursor
+
+        if self._current_change_line == line_index:
+            return
+        self._current_change_line = line_index
+
+        selection_format = QTextCharFormat()
+        selection_format.setBackground(QColor("#bfdbfe"))
+        selection_format.setProperty(QTextCharFormat.FullWidthSelection, True)
+
+        for text_edit in (self.left_text, self.right_text):
+            block = text_edit.document().findBlockByNumber(line_index)
+            if not block.isValid():
+                text_edit.setExtraSelections([])
+                continue
+            cursor = QTextCursor(block)
+            cursor.select(QTextCursor.LineUnderCursor)
+            selection = QTextEdit.ExtraSelection()
+            selection.cursor = cursor
+            selection.format = selection_format
+            text_edit.setExtraSelections([selection])
+
+    def get_change_count(self) -> int:
+        return len(self._change_line_indices)
+
+    def next_change(self) -> None:
+        if not self._change_line_indices:
+            return
+        if self._current_change_index < len(self._change_line_indices) - 1:
+            self._current_change_index += 1
+        self._scroll_to_line(self._change_line_indices[self._current_change_index])
+
+    def previous_change(self) -> None:
+        if not self._change_line_indices:
+            return
+        if self._current_change_index > 0:
+            self._current_change_index -= 1
+        elif self._current_change_index == -1:
+            self._current_change_index = 0
+        self._scroll_to_line(self._change_line_indices[self._current_change_index])
 
     def set_diff_engine(self, engine_name: str):
         """Set the diff engine to use (myers or smart)."""

@@ -112,6 +112,16 @@ class MainWindow(QMainWindow):
         # Options menu
         options_menu = menubar.addMenu("Options")
 
+        navigate_menu = menubar.addMenu("Navigate")
+        next_change_action = QAction("Next Change", self)
+        next_change_action.setShortcut(_get_platform_shortcut("Alt+Down", "Alt+Down"))
+        next_change_action.triggered.connect(self._next_change)
+        prev_change_action = QAction("Previous Change", self)
+        prev_change_action.setShortcut(_get_platform_shortcut("Alt+Up", "Alt+Up"))
+        prev_change_action.triggered.connect(self._previous_change)
+        navigate_menu.addAction(next_change_action)
+        navigate_menu.addAction(prev_change_action)
+
         # Engine submenu (under Options)
         engine_menu = options_menu.addMenu("Engine")
         self.myers_action = QAction("Myers Diff Algorithm", self)
@@ -148,6 +158,14 @@ class MainWindow(QMainWindow):
         if ok:
             self.file_compare.set_font(font)
             self.folder_compare.set_font(font)
+
+    def _next_change(self):
+        if self.stacked_widget.currentIndex() == 0:
+            self.file_compare.next_change()
+
+    def _previous_change(self):
+        if self.stacked_widget.currentIndex() == 0:
+            self.file_compare.previous_change()
 
     def open_files_dialog(self):
         dialog = OpenFilesDialog(

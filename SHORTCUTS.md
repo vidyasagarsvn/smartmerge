@@ -26,6 +26,13 @@ All shortcuts are **platform-aware** and adapt to your operating system:
 5. **Going Back**: When viewing a file from folder context, use Ctrl+B (or Cmd+B) to return to folder view
    - The "Back to Folder View" option is only enabled when navigating from the folder view
 
+## Diff Navigation
+
+| Action | Linux/Windows | macOS |
+|--------|---------------|-------|
+| Next Change | Alt+Down | Option+Down |
+| Previous Change | Alt+Up | Option+Up |
+
 ## Folder Comparison Features
 
 - **Non-recursive by default**: Shows only root-level items
