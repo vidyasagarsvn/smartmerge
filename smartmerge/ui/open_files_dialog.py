@@ -1,15 +1,24 @@
+from PySide6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QLabel,
+    QLineEdit,
+    QFileDialog,
+)
 
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QFileDialog, QSizePolicy
 
 class OpenFilesDialog(QDialog):
     """Dialog for selecting left and right files for comparison."""
-    def __init__(self, parent=None):
+
+    def __init__(self, parent=None, initial_left_path="", initial_right_path=""):
         super().__init__(parent)
         self.setWindowTitle("Open Files")
         self.setModal(True)
         self.setFixedSize(500, 220)
-        self.left_path = ''
-        self.right_path = ''
+        self.left_path = initial_left_path or ""
+        self.right_path = initial_right_path or ""
         self.init_ui()
 
     def init_ui(self):
@@ -59,6 +68,11 @@ class OpenFilesDialog(QDialog):
         layout.addSpacing(20)
         layout.addLayout(btn_row)
         self.setLayout(layout)
+
+        if self.left_path:
+            self.left_edit.setText(self.left_path)
+        if self.right_path:
+            self.right_edit.setText(self.right_path)
 
     def browse_left(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Left File")

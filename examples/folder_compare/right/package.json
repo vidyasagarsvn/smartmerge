@@ -1,0 +1,25 @@
+{
+  "project": "SmartMerge",
+  "version": "0.2.0",
+  "author": "Development Team",
+  "maintainer": "Core Contributors",
+  "license": "GPL-3.0-or-later",
+  "description": "A cross-platform file and folder comparison and merge tool with visual highlighting",
+  "keywords": ["diff", "merge", "compare", "tools", "visual"],
+  "homepage": "https://example.com/smartmerge",
+  "repository": "https://github.com/example/smartmerge",
+  "dependencies": {
+    "pyside6": "^6.5.0",
+    "python-Levenshtein": "^0.21.0"
+  },
+  "devDependencies": {
+    "pytest": "^7.4.0",
+    "pytest-cov": "^4.1.0",
+    "ruff": "^0.1.8"
+  },
+  "scripts": {
+    "test": "pytest",
+    "lint": "ruff check .",
+    "format": "ruff format ."
+  }
+}
