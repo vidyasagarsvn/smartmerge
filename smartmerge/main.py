@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QFileDialog,
     QMessageBox,
+    QToolBar,
 )
 from PySide6.QtCore import QSettings
 from PySide6.QtGui import QAction, QIcon, QFont
@@ -66,6 +67,7 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(self.stacked_widget)
         self._create_menu()
+        self._create_toolbar()
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
         self.settings = QSettings("SmartMerge", "SmartMerge")
@@ -247,6 +249,67 @@ class MainWindow(QMainWindow):
 
         engine_menu.addAction(self.myers_action)
         engine_menu.addAction(self.smart_action)
+
+    def _create_toolbar(self):
+        """Create the main toolbar with frequently used actions."""
+        toolbar = QToolBar("Navigation & Actions")
+        toolbar.setMovable(False)
+        toolbar.setIconSize(toolbar.iconSize() * 2.0)  # Increase icon size by 100%
+        toolbar.setObjectName("MainToolBar")
+        self.addToolBar(toolbar)
+        self.main_toolbar = toolbar
+
+        # File operations group
+        open_files_action = QAction("📁 Open Files", self)
+        open_files_action.setToolTip("Open Files (Cmd+O)")
+        open_files_action.triggered.connect(self.open_files_dialog)
+        toolbar.addAction(open_files_action)
+
+        open_folders_action = QAction("📂 Open Folders", self)
+        open_folders_action.setToolTip("Open Folders (Cmd+Shift+O)")
+        open_folders_action.triggered.connect(self.open_folders_dialog)
+        toolbar.addAction(open_folders_action)
+
+        toolbar.addSeparator()
+
+        # Edit operations group
+        save_action = QAction("💾 Save", self)
+        save_action.setToolTip("Save Files (Cmd+S)")
+        save_action.triggered.connect(self._save)
+        toolbar.addAction(save_action)
+
+        find_action = QAction("🔍 Find", self)
+        find_action.setToolTip("Find Text (Cmd+F)")
+        find_action.triggered.connect(self._open_search)
+        toolbar.addAction(find_action)
+
+        toolbar.addSeparator()
+
+        # Navigate operations group
+        next_action = QAction("↓ Next", self)
+        next_action.setToolTip("Next Change (Alt+Down)")
+        next_action.triggered.connect(self._next_change)
+        toolbar.addAction(next_action)
+
+        prev_action = QAction("↑ Previous", self)
+        prev_action.setToolTip("Previous Change (Alt+Up)")
+        prev_action.triggered.connect(self._previous_change)
+        toolbar.addAction(prev_action)
+
+        toolbar.addSeparator()
+
+        copy_right_action = QAction("→ Copy", self)
+        copy_right_action.setToolTip("Copy to Right (Alt+Right)")
+        copy_right_action.triggered.connect(self._copy_to_right)
+        toolbar.addAction(copy_right_action)
+
+        copy_left_action = QAction("← Copy", self)
+        copy_left_action.setToolTip("Copy to Left (Alt+Left)")
+        copy_left_action.triggered.connect(self._copy_to_left)
+        toolbar.addAction(copy_left_action)
+
+        # Apply theme styling to toolbar
+        self._apply_toolbar_theme()
 
     def open_font_dialog(self):
         if self.stacked_widget.currentIndex() == 0:  # File comparison
@@ -494,6 +557,11 @@ class MainWindow(QMainWindow):
             QPushButton { background-color: #f0f0f0; color: #000000; border: 1px solid #d0d0d0; border-radius: 4px; padding: 5px; }
             QPushButton:hover { background-color: #e0e0e0; }
             QPushButton:pressed { background-color: #d0d0d0; }
+            QToolBar { background-color: #f5f5f5; color: #000000; border-bottom: 1px solid #e0e0e0; padding: 12px; }
+            QToolBar::separator { background-color: #d0d0d0; margin: 5px 5px; }
+            QToolButton { color: #000000; padding: 8px 16px; font-size: 13px; font-weight: 500; }
+            QToolButton:hover { background-color: #e0e0e0; }
+            QToolButton:pressed { background-color: #d0d0d0; }
         """
         self.setStyleSheet(light_stylesheet)
 
@@ -512,8 +580,22 @@ class MainWindow(QMainWindow):
             QPushButton { background-color: #3d3d3d; color: #e0e0e0; border: 1px solid #4d4d4d; border-radius: 4px; padding: 5px; }
             QPushButton:hover { background-color: #4d4d4d; }
             QPushButton:pressed { background-color: #5d5d5d; }
+            QToolBar { background-color: #2d2d2d; color: #e0e0e0; border-bottom: 1px solid #3d3d3d; padding: 12px; }
+            QToolBar::separator { background-color: #4d4d4d; margin: 5px 5px; }
+            QToolButton { color: #e0e0e0; padding: 8px 16px; font-size: 13px; font-weight: 500; }
+            QToolButton:hover { background-color: #3d3d3d; }
+            QToolButton:pressed { background-color: #4d4d4d; }
         """
         self.setStyleSheet(dark_stylesheet)
+
+    def _apply_toolbar_theme(self):
+        """Apply current theme to toolbar."""
+        if hasattr(self, "main_toolbar"):
+            # Re-apply full theme stylesheet
+            if self.current_theme == "dark":
+                self._apply_dark_theme()
+            else:
+                self._apply_light_theme()
 
     def _open_search(self):
         """Open the search/find dialog."""
