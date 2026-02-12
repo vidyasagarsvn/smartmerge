@@ -234,6 +234,19 @@ class MainWindow(QMainWindow):
         copy_to_left_action.triggered.connect(self._copy_to_left)
         navigate_menu.addAction(copy_to_right_action)
         navigate_menu.addAction(copy_to_left_action)
+        navigate_menu.addSeparator()
+        copy_all_to_right_action = QAction("Copy All to Right", self)
+        copy_all_to_right_action.setShortcut(
+            _get_platform_shortcut("Ctrl+Alt+Right", "Cmd+Alt+Right")
+        )
+        copy_all_to_right_action.triggered.connect(self._copy_all_to_right)
+        copy_all_to_left_action = QAction("Copy All to Left", self)
+        copy_all_to_left_action.setShortcut(
+            _get_platform_shortcut("Ctrl+Alt+Left", "Cmd+Alt+Left")
+        )
+        copy_all_to_left_action.triggered.connect(self._copy_all_to_left)
+        navigate_menu.addAction(copy_all_to_right_action)
+        navigate_menu.addAction(copy_all_to_left_action)
 
         # Engine submenu (under Options)
         engine_menu = options_menu.addMenu("Engine")
@@ -308,6 +321,18 @@ class MainWindow(QMainWindow):
         copy_left_action.triggered.connect(self._copy_to_left)
         toolbar.addAction(copy_left_action)
 
+        toolbar.addSeparator()
+
+        copy_all_right_action = QAction("⇒ Copy All", self)
+        copy_all_right_action.setToolTip("Copy All to Right (Cmd+Alt+Right)")
+        copy_all_right_action.triggered.connect(self._copy_all_to_right)
+        toolbar.addAction(copy_all_right_action)
+
+        copy_all_left_action = QAction("⇐ Copy All", self)
+        copy_all_left_action.setToolTip("Copy All to Left (Cmd+Alt+Left)")
+        copy_all_left_action.triggered.connect(self._copy_all_to_left)
+        toolbar.addAction(copy_all_left_action)
+
         # Apply theme styling to toolbar
         self._apply_toolbar_theme()
 
@@ -347,6 +372,16 @@ class MainWindow(QMainWindow):
     def _copy_to_left(self):
         if self.stacked_widget.currentIndex() == 0:
             self.file_compare.copy_to_left()
+            self._update_undo_redo_state()
+
+    def _copy_all_to_right(self):
+        if self.stacked_widget.currentIndex() == 0:
+            self.file_compare.copy_all_to_right()
+            self._update_undo_redo_state()
+
+    def _copy_all_to_left(self):
+        if self.stacked_widget.currentIndex() == 0:
+            self.file_compare.copy_all_to_left()
             self._update_undo_redo_state()
 
     def _undo(self):

@@ -731,6 +731,40 @@ class FileCompareWidget(QWidget):
             self._scroll_to_line(start_line)
             self._set_change_selection(start_line, end_line)
 
+    def copy_all_to_right(self) -> None:
+        """Copy all lines from left to right."""
+        if not self.left_lines:
+            return
+
+        # Save current state to undo stack before making changes
+        self._push_undo_state()
+        self.redo_stack.clear()
+
+        # Copy all left lines to right
+        self.right_lines = self.left_lines.copy()
+        self.is_right_modified = True
+        self._update_file_labels()
+        self._update_views()
+        self.left_text.verticalScrollBar().setValue(0)
+        self.right_text.verticalScrollBar().setValue(0)
+
+    def copy_all_to_left(self) -> None:
+        """Copy all lines from right to left."""
+        if not self.right_lines:
+            return
+
+        # Save current state to undo stack before making changes
+        self._push_undo_state()
+        self.redo_stack.clear()
+
+        # Copy all right lines to left
+        self.left_lines = self.right_lines.copy()
+        self.is_left_modified = True
+        self._update_file_labels()
+        self._update_views()
+        self.left_text.verticalScrollBar().setValue(0)
+        self.right_text.verticalScrollBar().setValue(0)
+
     def _push_undo_state(self) -> None:
         """Save current state to undo stack."""
         # Store copies of the current lines and current region index
