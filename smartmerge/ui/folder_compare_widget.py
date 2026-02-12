@@ -7,6 +7,8 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QMenu,
+    QCheckBox,
+    QHBoxLayout,
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
@@ -40,6 +42,16 @@ class FolderCompareWidget(QWidget):
         self.initial_right_path: Path | None = None
         self.theme: str = "light"
 
+        # Filter state - all filters enabled by default
+        self.filter_identical = True
+        self.filter_modified = True
+        self.filter_left_only = True
+        self.filter_right_only = True
+        self.filter_missing = True
+
+        # Filtered items list for tracking displayed rows
+        self.filtered_items: list[FolderItem] = []
+
         self._setup_ui()
 
     def _setup_ui(self):
@@ -49,6 +61,46 @@ class FolderCompareWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        # Create filter toolbar
+        filter_layout = QHBoxLayout()
+        filter_layout.setContentsMargins(8, 8, 8, 8)
+        filter_layout.setSpacing(16)
+
+        # Add label
+        from PySide6.QtWidgets import QLabel
+
+        self.filter_label = QLabel("Filter by status:")
+        filter_layout.addWidget(self.filter_label)
+
+        # Create filter checkboxes
+        self.cb_identical = QCheckBox("✅ Identical")
+        self.cb_identical.setChecked(True)
+        self.cb_identical.stateChanged.connect(self._on_filter_changed)
+        filter_layout.addWidget(self.cb_identical)
+
+        self.cb_modified = QCheckBox("📝 Modified")
+        self.cb_modified.setChecked(True)
+        self.cb_modified.stateChanged.connect(self._on_filter_changed)
+        filter_layout.addWidget(self.cb_modified)
+
+        self.cb_left_only = QCheckBox("➡️ Left Only")
+        self.cb_left_only.setChecked(True)
+        self.cb_left_only.stateChanged.connect(self._on_filter_changed)
+        filter_layout.addWidget(self.cb_left_only)
+
+        self.cb_right_only = QCheckBox("⬅️ Right Only")
+        self.cb_right_only.setChecked(True)
+        self.cb_right_only.stateChanged.connect(self._on_filter_changed)
+        filter_layout.addWidget(self.cb_right_only)
+
+        self.cb_missing = QCheckBox("❌ Missing")
+        self.cb_missing.setChecked(True)
+        self.cb_missing.stateChanged.connect(self._on_filter_changed)
+        filter_layout.addWidget(self.cb_missing)
+
+        filter_layout.addStretch()
+        layout.addLayout(filter_layout)
+
         # Create table widget
         self.table = QTableWidget()
         self.table.setColumnCount(2)
@@ -56,12 +108,14 @@ class FolderCompareWidget(QWidget):
 
         # Configure columns
         header = self.table.horizontalHeader()
-        header.setStretchLastSection(False)
+        header.setStretchLastSection(True)
         header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
 
         # Set row height
         self.table.verticalHeader().setDefaultSectionSize(22)
+        # Add right margin by setting table margins
+        self.table.setContentsMargins(0, 0, 8, 0)
 
         # Connect signals
         self.table.cellDoubleClicked.connect(self._on_cell_double_clicked)
@@ -113,10 +167,41 @@ class FolderCompareWidget(QWidget):
 
         # Add actual comparison items
         self.current_items.extend(compare_folders(self.left_path, self.right_path))
-        self.table.setRowCount(len(self.current_items))
 
-        for row, item in enumerate(self.current_items):
+        # Filter items based on current filter settings
+        self.filtered_items = [
+            item for item in self.current_items if self._should_show_item(item)
+        ]
+
+        self.table.setRowCount(len(self.filtered_items))
+
+        for row, item in enumerate(self.filtered_items):
             self._populate_row(row, item)
+
+    def _should_show_item(self, item: FolderItem) -> bool:
+        """Check if item should be displayed based on current filters."""
+        if item.status == ItemStatus.IDENTICAL:
+            return self.filter_identical
+        elif item.status == ItemStatus.MODIFIED:
+            return self.filter_modified
+        elif item.status in (ItemStatus.ADDED_LEFT, ItemStatus.FOLDER_LEFT_ONLY):
+            return self.filter_left_only
+        elif item.status in (ItemStatus.ADDED_RIGHT, ItemStatus.FOLDER_RIGHT_ONLY):
+            return self.filter_right_only
+        elif item.status in (ItemStatus.DELETED_LEFT, ItemStatus.DELETED_RIGHT):
+            return self.filter_missing
+        return True
+
+    def _on_filter_changed(self):
+        """Handle filter checkbox state changes."""
+        self.filter_identical = self.cb_identical.isChecked()
+        self.filter_modified = self.cb_modified.isChecked()
+        self.filter_left_only = self.cb_left_only.isChecked()
+        self.filter_right_only = self.cb_right_only.isChecked()
+        self.filter_missing = self.cb_missing.isChecked()
+        # Refresh table with new filters
+        if self.left_path and self.right_path:
+            self._update_table()
 
     def _populate_row(self, row: int, item: FolderItem):
         """Populate a table row with item data."""
@@ -164,8 +249,8 @@ class FolderCompareWidget(QWidget):
 
     def _on_cell_double_clicked(self, row: int, col: int):
         """Handle double-click on table cell."""
-        if 0 <= row < len(self.current_items):
-            item = self.current_items[row]
+        if 0 <= row < len(self.filtered_items):
+            item = self.filtered_items[row]
 
             # Only allow navigation into folders present on both sides
             if item.type == ItemType.FOLDER and is_folder_navigable(item):
@@ -182,8 +267,8 @@ class FolderCompareWidget(QWidget):
             return
 
         row = self.table.row(item)
-        if 0 <= row < len(self.current_items):
-            folder_item = self.current_items[row]
+        if 0 <= row < len(self.filtered_items):
+            folder_item = self.filtered_items[row]
 
             menu = QMenu()
 
@@ -218,6 +303,13 @@ class FolderCompareWidget(QWidget):
         if self.theme == "dark":
             # Dark mode styling
             widget_stylesheet = "QWidget { background-color: #2a2a2a; }"
+            filter_stylesheet = """
+                QLabel { color: #ffffff; background-color: transparent; }
+                QCheckBox { color: #ffffff; background-color: transparent; spacing: 6px; }
+                QCheckBox::indicator { width: 16px; height: 16px; }
+                QCheckBox::indicator:unchecked { background-color: #3a3a3a; border: 1px solid #555555; border-radius: 2px; }
+                QCheckBox::indicator:checked { background-color: #4a7c4e; border: 1px solid #6fa873; border-radius: 2px; }
+            """
             table_stylesheet = """
                 QTableWidget {
                     background-color: #2a2a2a;
@@ -225,7 +317,7 @@ class FolderCompareWidget(QWidget):
                     gridline-color: #3a3a3a;
                 }
                 QTableWidget::item {
-                    padding: 2px;
+                    padding: 2px 8px;
                     border: none;
                 }
                 QHeaderView::section {
@@ -265,6 +357,13 @@ class FolderCompareWidget(QWidget):
         else:
             # Light mode styling
             widget_stylesheet = "QWidget { background-color: #ffffff; }"
+            filter_stylesheet = """
+                QLabel { color: #000000; background-color: transparent; }
+                QCheckBox { color: #000000; background-color: transparent; spacing: 6px; }
+                QCheckBox::indicator { width: 16px; height: 16px; }
+                QCheckBox::indicator:unchecked { background-color: #ffffff; border: 1px solid #cccccc; border-radius: 2px; }
+                QCheckBox::indicator:checked { background-color: #4a7c4e; border: 1px solid #2d5a31; border-radius: 2px; }
+            """
             table_stylesheet = """
                 QTableWidget {
                     background-color: #ffffff;
@@ -272,7 +371,7 @@ class FolderCompareWidget(QWidget):
                     gridline-color: #e0e0e0;
                 }
                 QTableWidget::item {
-                    padding: 2px;
+                    padding: 2px 8px;
                     border: none;
                 }
                 QHeaderView::section {
@@ -311,6 +410,16 @@ class FolderCompareWidget(QWidget):
             """
 
         self.setStyleSheet(widget_stylesheet)
+        # Apply filter pane styling
+        self.filter_label.setStyleSheet(filter_stylesheet)
+        for checkbox in [
+            self.cb_identical,
+            self.cb_modified,
+            self.cb_left_only,
+            self.cb_right_only,
+            self.cb_missing,
+        ]:
+            checkbox.setStyleSheet(filter_stylesheet)
         self.table.setStyleSheet(table_stylesheet)
 
         # Refresh table display to apply new colors
