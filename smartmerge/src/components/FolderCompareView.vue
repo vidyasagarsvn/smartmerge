@@ -96,6 +96,16 @@ const filteredItems = computed(() =>
   props.items.filter((item) => filterState.value[statusKey(item.status)])
 );
 
+const sortedItems = computed(() => {
+  const items = [...filteredItems.value];
+  return items.sort((a, b) => {
+    if (a.item_type !== b.item_type) {
+      return a.item_type === "folder" ? -1 : 1;
+    }
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
+});
+
 const onRowActivate = (item: FolderItem) => {
   if (isNavigableFolder(item)) {
     emit("navigate", item.left_path as string, item.right_path as string);
@@ -145,7 +155,7 @@ const onRowActivate = (item: FolderItem) => {
         <span>---</span>
       </div>
       <div
-        v-for="item in filteredItems"
+        v-for="item in sortedItems"
         :key="item.name"
         class="folder-row"
         :class="{
@@ -170,7 +180,7 @@ const onRowActivate = (item: FolderItem) => {
           </span>
           {{ item.name }}
         </span>
-        <span>{{ statusLabel(item.status) }}</span>
+        <span>{{ item.item_type === "folder" ? "" : statusLabel(item.status) }}</span>
       </div>
     </div>
   </section>

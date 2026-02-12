@@ -28,6 +28,7 @@ struct MenuItems {
 }
 
 #[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct MenuStatePayload {
     can_back: bool,
     can_save: bool,

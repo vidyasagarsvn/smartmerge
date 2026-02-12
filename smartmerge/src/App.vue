@@ -156,36 +156,8 @@ const updateModifiedFlags = () => {
     rightLines.value.join("") !== savedRightLines.value.join("");
 };
 
-const findFirstMismatch = (left: string[], right: string[]) => {
-  const maxLen = Math.max(left.length, right.length);
-  for (let i = 0; i < maxLen; i += 1) {
-    if (left[i] !== right[i]) {
-      return { index: i, left: left[i] ?? null, right: right[i] ?? null };
-    }
-  }
-  return null;
-};
-
 const refreshDiffFromLines = async () => {
   try {
-    const mismatch = findFirstMismatch(leftLines.value, rightLines.value);
-    if (!mismatch) {
-      diffResult.value = {
-        left_lines: [...leftLines.value],
-        right_lines: [...rightLines.value],
-        opcodes: [
-          {
-            tag: "equal",
-            i1: 0,
-            i2: leftLines.value.length,
-            j1: 0,
-            j2: rightLines.value.length,
-          },
-        ],
-      };
-      updateModifiedFlags();
-      return;
-    }
     const opcodes = await invoke<Opcode[]>("compare_lines", {
       leftLines: leftLines.value,
       rightLines: rightLines.value,
