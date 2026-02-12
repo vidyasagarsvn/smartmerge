@@ -38,6 +38,7 @@ class FolderCompareWidget(QWidget):
             None  # Track initial paths for parent navigation
         )
         self.initial_right_path: Path | None = None
+        self.theme: str = "light"
 
         self._setup_ui()
 
@@ -70,6 +71,7 @@ class FolderCompareWidget(QWidget):
         self.table.customContextMenuRequested.connect(self._on_context_menu)
 
         layout.addWidget(self.table)
+        self._apply_theme_to_ui()
 
     def set_paths(self, left_path: Path, right_path: Path):
         """Set folder paths and update comparison."""
@@ -132,7 +134,11 @@ class FolderCompareWidget(QWidget):
 
         # Make non-navigable folders grayed out
         if item.type == ItemType.FOLDER and not is_folder_navigable(item):
-            gray = QColor(150, 150, 150)
+            gray = (
+                QColor(150, 150, 150)
+                if self.theme == "light"
+                else QColor(100, 100, 100)
+            )
             name_item.setForeground(gray)
 
         self.table.setItem(row, 0, name_item)
@@ -162,26 +168,42 @@ class FolderCompareWidget(QWidget):
         self, status: ItemStatus, side: str
     ) -> tuple[str, QColor | None]:
         """Convert status enum to display text and color."""
+        # Get theme-aware colors
+        if self.theme == "dark":
+            identical_color = QColor(45, 80, 45)  # Dark green
+            modified_color = QColor(100, 90, 20)  # Dark amber/yellow
+            added_color = QColor(45, 80, 45)  # Dark green
+            deleted_color = QColor(80, 40, 40)  # Dark red
+        else:
+            identical_color = QColor(200, 255, 200)  # Light green
+            modified_color = QColor(255, 255, 200)  # Light yellow
+            added_color = QColor(200, 255, 200)  # Light green
+            deleted_color = QColor(255, 200, 200)  # Light red
+
         if status == ItemStatus.IDENTICAL:
-            return "✓", QColor(200, 255, 200)  # Light green
+            return "✓", identical_color
         elif status == ItemStatus.MODIFIED:
-            return "≠", QColor(255, 255, 200)  # Light yellow
+            return "≠", modified_color
         elif status == ItemStatus.ADDED_LEFT:
-            return "+" if side == "left" else "", QColor(
-                200, 255, 200
-            ) if side == "left" else None
+            return (
+                "+" if side == "left" else "",
+                added_color if side == "left" else None,
+            )
         elif status == ItemStatus.ADDED_RIGHT:
-            return "" if side == "left" else "+", QColor(
-                200, 255, 200
-            ) if side == "right" else None
+            return (
+                "" if side == "left" else "+",
+                added_color if side == "right" else None,
+            )
         elif status == ItemStatus.DELETED_LEFT:
-            return "-" if side == "left" else "", QColor(
-                255, 200, 200
-            ) if side == "left" else None
+            return (
+                "-" if side == "left" else "",
+                deleted_color if side == "left" else None,
+            )
         elif status == ItemStatus.DELETED_RIGHT:
-            return "" if side == "left" else "-", QColor(
-                255, 200, 200
-            ) if side == "right" else None
+            return (
+                "" if side == "left" else "-",
+                deleted_color if side == "right" else None,
+            )
         elif status == ItemStatus.FOLDER_LEFT_ONLY:
             return "📁" if side == "left" else "", None
         elif status == ItemStatus.FOLDER_RIGHT_ONLY:
@@ -236,5 +258,110 @@ class FolderCompareWidget(QWidget):
         self.table.setFont(font)
 
     def set_theme(self, theme: str):
-        """Set the current theme (light or dark). Placeholder for future theme support."""
-        pass
+        """Set the current theme (light or dark) and update colors."""
+        self.theme = theme
+        self._apply_theme_to_ui()
+
+    def _apply_theme_to_ui(self):
+        """Apply theme styling to table and refresh display."""
+        if self.theme == "dark":
+            # Dark mode styling
+            widget_stylesheet = "QWidget { background-color: #2a2a2a; }"
+            table_stylesheet = """
+                QTableWidget {
+                    background-color: #2a2a2a;
+                    color: #ffffff;
+                    gridline-color: #3a3a3a;
+                }
+                QTableWidget::item {
+                    padding: 2px;
+                    border: none;
+                }
+                QHeaderView::section {
+                    background-color: #3a3a3a;
+                    color: #ffffff;
+                    padding: 4px;
+                    border: none;
+                    border-right: 1px solid #2a2a2a;
+                    border-bottom: 1px solid #2a2a2a;
+                }
+                QTableCornerButton::section {
+                    background-color: #3a3a3a;
+                }
+                QScrollBar:vertical {
+                    background-color: #2a2a2a;
+                    width: 12px;
+                }
+                QScrollBar::handle:vertical {
+                    background-color: #555555;
+                    border-radius: 6px;
+                }
+                QScrollBar::handle:vertical:hover {
+                    background-color: #666666;
+                }
+                QScrollBar:horizontal {
+                    background-color: #2a2a2a;
+                    height: 12px;
+                }
+                QScrollBar::handle:horizontal {
+                    background-color: #555555;
+                    border-radius: 6px;
+                }
+                QScrollBar::handle:horizontal:hover {
+                    background-color: #666666;
+                }
+            """
+        else:
+            # Light mode styling
+            widget_stylesheet = "QWidget { background-color: #ffffff; }"
+            table_stylesheet = """
+                QTableWidget {
+                    background-color: #ffffff;
+                    color: #000000;
+                    gridline-color: #e0e0e0;
+                }
+                QTableWidget::item {
+                    padding: 2px;
+                    border: none;
+                }
+                QHeaderView::section {
+                    background-color: #f5f5f5;
+                    color: #000000;
+                    padding: 4px;
+                    border: none;
+                    border-right: 1px solid #e0e0e0;
+                    border-bottom: 1px solid #e0e0e0;
+                }
+                QTableCornerButton::section {
+                    background-color: #f5f5f5;
+                }
+                QScrollBar:vertical {
+                    background-color: #ffffff;
+                    width: 12px;
+                }
+                QScrollBar::handle:vertical {
+                    background-color: #cccccc;
+                    border-radius: 6px;
+                }
+                QScrollBar::handle:vertical:hover {
+                    background-color: #bbbbbb;
+                }
+                QScrollBar:horizontal {
+                    background-color: #ffffff;
+                    height: 12px;
+                }
+                QScrollBar::handle:horizontal {
+                    background-color: #cccccc;
+                    border-radius: 6px;
+                }
+                QScrollBar::handle:horizontal:hover {
+                    background-color: #bbbbbb;
+                }
+            """
+
+        self.setStyleSheet(widget_stylesheet)
+        self.table.setStyleSheet(table_stylesheet)
+
+        # Refresh table display to apply new colors
+        if self.left_path and self.right_path:
+            self._update_table()
