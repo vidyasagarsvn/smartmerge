@@ -31,7 +31,7 @@ smartmerge = "smartmerge.main:main"
 packages = ["smartmerge"]
 
 [tool.setuptools.package-data]
-smartmerge = ["resources/*.svg"]
+smartmerge = ["resources/*.svg", "resources/icons/*/*.svg"]
 
 [tool.uv]
 package = true

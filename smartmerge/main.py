@@ -37,12 +37,13 @@ class MainWindow(QMainWindow):
         self._set_app_icon()
         self.resize(1200, 700)
 
+        # Enable tooltips globally
+        QApplication.instance().setStyle("Fusion")
+
         # Initialize state before creating UI
         self.navigation_stack: list[tuple[Path, Path]] = []  # For breadcrumb navigation
         self.viewing_from_folder: bool = False  # Track if we navigated from folder view
-        self.back_action: QAction | None = (
-            None  # Reference to back action for enabling/disabling
-        )
+        self.back_action: QAction | None = None  # Reference to back action for enabling/disabling
         self.current_theme: str = "light"  # Track current theme (light or dark)
 
         # Create stacked widget to switch between file and folder views
@@ -98,9 +99,7 @@ class MainWindow(QMainWindow):
         self.back_action = QAction("Back to Folder View", self)
         exit_action = QAction("Exit", self)
         open_files_action.setShortcut(_get_platform_shortcut("Ctrl+O", "Cmd+O"))
-        open_folders_action.setShortcut(
-            _get_platform_shortcut("Ctrl+Shift+O", "Cmd+Shift+O")
-        )
+        open_folders_action.setShortcut(_get_platform_shortcut("Ctrl+Shift+O", "Cmd+Shift+O"))
         self.back_action.setShortcut("Escape")
         exit_action.setShortcut(_get_platform_shortcut("Ctrl+Q", "Cmd+Q"))
         open_files_action.triggered.connect(self.open_files_dialog)
@@ -135,9 +134,7 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(self.undo_action)
 
         self.redo_action = QAction("Redo", self)
-        self.redo_action.setShortcut(
-            _get_platform_shortcut("Ctrl+Shift+Z", "Cmd+Shift+Z")
-        )
+        self.redo_action.setShortcut(_get_platform_shortcut("Ctrl+Shift+Z", "Cmd+Shift+Z"))
         self.redo_action.triggered.connect(self._redo)
         self.redo_action.setEnabled(False)
         redo_font = self.redo_action.font()
@@ -157,9 +154,7 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(save_action)
 
         save_all_action = QAction("Save All Files", self)
-        save_all_action.setShortcut(
-            _get_platform_shortcut("Ctrl+Shift+S", "Cmd+Shift+S")
-        )
+        save_all_action.setShortcut(_get_platform_shortcut("Ctrl+Shift+S", "Cmd+Shift+S"))
         save_all_action.triggered.connect(self._save_all)
         save_all_font = save_all_action.font()
         save_all_font.setBold(True)
@@ -227,9 +222,7 @@ class MainWindow(QMainWindow):
         # Merge menu
         merge_menu = menubar.addMenu("Merge")
         copy_to_right_action = QAction("Copy to Right", self)
-        copy_to_right_action.setShortcut(
-            _get_platform_shortcut("Alt+Right", "Alt+Right")
-        )
+        copy_to_right_action.setShortcut(_get_platform_shortcut("Alt+Right", "Alt+Right"))
         copy_to_right_action.triggered.connect(self._copy_to_right)
         copy_to_left_action = QAction("Copy to Left", self)
         copy_to_left_action.setShortcut(_get_platform_shortcut("Alt+Left", "Alt+Left"))
@@ -243,9 +236,7 @@ class MainWindow(QMainWindow):
         )
         copy_all_to_right_action.triggered.connect(self._copy_all_to_right)
         copy_all_to_left_action = QAction("Copy All to Left", self)
-        copy_all_to_left_action.setShortcut(
-            _get_platform_shortcut("Ctrl+Alt+Left", "Cmd+Alt+Left")
-        )
+        copy_all_to_left_action.setShortcut(_get_platform_shortcut("Ctrl+Alt+Left", "Cmd+Alt+Left"))
         copy_all_to_left_action.triggered.connect(self._copy_all_to_left)
         merge_menu.addAction(copy_all_to_right_action)
         merge_menu.addAction(copy_all_to_left_action)
@@ -267,71 +258,83 @@ class MainWindow(QMainWindow):
 
     def _create_toolbar(self):
         """Create the main toolbar with frequently used actions."""
+        from pathlib import Path
+
         toolbar = QToolBar("Navigation & Actions")
         toolbar.setMovable(False)
-        toolbar.setIconSize(toolbar.iconSize() * 2.0)  # Increase icon size by 100%
+        toolbar.setIconSize(toolbar.iconSize() * 1.25)  # Increase icon size by 25%
         toolbar.setObjectName("MainToolBar")
         self.addToolBar(toolbar)
         self.main_toolbar = toolbar
 
         # File operations group
-        open_files_action = QAction("📁 Open Files", self)
-        open_files_action.setToolTip("Open Files (Cmd+O)")
+        open_files_action = QAction("Open Files", self)
+        open_files_action.setIcon(self._get_icon("open-files"))
+        open_files_action.setToolTip("Open Files for Comparison\n⌘O")
         open_files_action.triggered.connect(self.open_files_dialog)
         toolbar.addAction(open_files_action)
 
-        open_folders_action = QAction("📂 Open Folders", self)
-        open_folders_action.setToolTip("Open Folders (Cmd+Shift+O)")
+        open_folders_action = QAction("Open Folders", self)
+        open_folders_action.setIcon(self._get_icon("open-folders"))
+        open_folders_action.setToolTip("Open Folders for Comparison\n⌘⇧O")
         open_folders_action.triggered.connect(self.open_folders_dialog)
         toolbar.addAction(open_folders_action)
 
         toolbar.addSeparator()
 
         # Edit operations group
-        save_action = QAction("💾 Save", self)
-        save_action.setToolTip("Save Files (Cmd+S)")
+        save_action = QAction("Save", self)
+        save_action.setIcon(self._get_icon("save"))
+        save_action.setToolTip("Save All Changes\n⌘S")
         save_action.triggered.connect(self._save)
         toolbar.addAction(save_action)
 
-        find_action = QAction("🔍 Find", self)
-        find_action.setToolTip("Find Text (Cmd+F)")
+        find_action = QAction("Find", self)
+        find_action.setIcon(self._get_icon("find"))
+        find_action.setToolTip("Find Text in Files\n⌘F")
         find_action.triggered.connect(self._open_search)
         toolbar.addAction(find_action)
 
         toolbar.addSeparator()
 
         # Navigate operations group
-        next_action = QAction("↓ Next", self)
-        next_action.setToolTip("Next Change (Alt+Down)")
+        next_action = QAction("Next", self)
+        next_action.setIcon(self._get_icon("next"))
+        next_action.setToolTip("Go to Next Difference\n⌥↓")
         next_action.triggered.connect(self._next_change)
         toolbar.addAction(next_action)
 
-        prev_action = QAction("↑ Previous", self)
-        prev_action.setToolTip("Previous Change (Alt+Up)")
+        prev_action = QAction("Previous", self)
+        prev_action.setIcon(self._get_icon("previous"))
+        prev_action.setToolTip("Go to Previous Difference\n⌥↑")
         prev_action.triggered.connect(self._previous_change)
         toolbar.addAction(prev_action)
 
         toolbar.addSeparator()
 
-        copy_right_action = QAction("→ Copy", self)
-        copy_right_action.setToolTip("Copy to Right (Alt+Right)")
+        copy_right_action = QAction("Copy Right", self)
+        copy_right_action.setIcon(self._get_icon("copy-right"))
+        copy_right_action.setToolTip("Copy Selected Region to Right\n⌥→")
         copy_right_action.triggered.connect(self._copy_to_right)
         toolbar.addAction(copy_right_action)
 
-        copy_left_action = QAction("← Copy", self)
-        copy_left_action.setToolTip("Copy to Left (Alt+Left)")
+        copy_left_action = QAction("Copy Left", self)
+        copy_left_action.setIcon(self._get_icon("copy-left"))
+        copy_left_action.setToolTip("Copy Selected Region to Left\n⌥←")
         copy_left_action.triggered.connect(self._copy_to_left)
         toolbar.addAction(copy_left_action)
 
         toolbar.addSeparator()
 
-        copy_all_right_action = QAction("⇒ Copy All", self)
-        copy_all_right_action.setToolTip("Copy All to Right (Cmd+Alt+Right)")
+        copy_all_right_action = QAction("Copy All Right", self)
+        copy_all_right_action.setIcon(self._get_icon("copy-all-right"))
+        copy_all_right_action.setToolTip("Copy All Lines to Right\n⌘⌥→")
         copy_all_right_action.triggered.connect(self._copy_all_to_right)
         toolbar.addAction(copy_all_right_action)
 
-        copy_all_left_action = QAction("⇐ Copy All", self)
-        copy_all_left_action.setToolTip("Copy All to Left (Cmd+Alt+Left)")
+        copy_all_left_action = QAction("Copy All Left", self)
+        copy_all_left_action.setIcon(self._get_icon("copy-all-left"))
+        copy_all_left_action.setToolTip("Copy All Lines to Left\n⌘⌥←")
         copy_all_left_action.triggered.connect(self._copy_all_to_left)
         toolbar.addAction(copy_all_left_action)
 
@@ -556,9 +559,7 @@ class MainWindow(QMainWindow):
 
         # Set engine on file compare widget
         self.file_compare.set_diff_engine(engine_name)
-        self.statusBar.showMessage(
-            f"Switched to {engine_name.capitalize()} Diff Engine"
-        )
+        self.statusBar.showMessage(f"Switched to {engine_name.capitalize()} Diff Engine")
 
     def _set_theme(self, theme_name: str):
         """Set the application theme (light or dark mode)."""
@@ -578,6 +579,8 @@ class MainWindow(QMainWindow):
             self.folder_compare.set_theme("dark")
             self._apply_dark_theme()
 
+        # Reload toolbar icons for the new theme
+        self._reload_toolbar_icons()
         self.statusBar.showMessage(f"Switched to {theme_name.capitalize()} Mode")
 
     def _apply_light_theme(self):
@@ -594,11 +597,11 @@ class MainWindow(QMainWindow):
             QPushButton { background-color: #f0f0f0; color: #000000; border: 1px solid #d0d0d0; border-radius: 4px; padding: 5px; }
             QPushButton:hover { background-color: #e0e0e0; }
             QPushButton:pressed { background-color: #d0d0d0; }
-            QToolBar { background-color: #f5f5f5; color: #000000; border-bottom: 1px solid #e0e0e0; padding: 12px; }
+            QToolBar { background-color: #f5f5f5; color: #000000; border-bottom: 1px solid #e0e0e0; padding: 8px; }
             QToolBar::separator { background-color: #d0d0d0; margin: 5px 5px; }
-            QToolButton { color: #000000; padding: 8px 16px; font-size: 13px; font-weight: 500; }
-            QToolButton:hover { background-color: #e0e0e0; }
-            QToolButton:pressed { background-color: #d0d0d0; }
+            QToolButton { color: #000000; padding: 4px 8px; font-size: 13px; font-weight: 500; border-radius: 3px; border: 1px solid transparent; }
+            QToolButton:hover { background-color: #ececec; border: 1px solid #bfbfbf; }
+            QToolButton:pressed { background-color: #d0d0d0; border: 1px solid #a0a0a0; }
         """
         self.setStyleSheet(light_stylesheet)
 
@@ -617,13 +620,48 @@ class MainWindow(QMainWindow):
             QPushButton { background-color: #3d3d3d; color: #e0e0e0; border: 1px solid #4d4d4d; border-radius: 4px; padding: 5px; }
             QPushButton:hover { background-color: #4d4d4d; }
             QPushButton:pressed { background-color: #5d5d5d; }
-            QToolBar { background-color: #2d2d2d; color: #e0e0e0; border-bottom: 1px solid #3d3d3d; padding: 12px; }
+            QToolBar { background-color: #2d2d2d; color: #e0e0e0; border-bottom: 1px solid #3d3d3d; padding: 8px; }
             QToolBar::separator { background-color: #4d4d4d; margin: 5px 5px; }
-            QToolButton { color: #e0e0e0; padding: 8px 16px; font-size: 13px; font-weight: 500; }
-            QToolButton:hover { background-color: #3d3d3d; }
-            QToolButton:pressed { background-color: #4d4d4d; }
+            QToolButton { color: #e0e0e0; padding: 4px 8px; font-size: 13px; font-weight: 500; border-radius: 3px; border: 1px solid transparent; }
+            QToolButton:hover { background-color: #3d3d3d; border: 1px solid #565656; }
+            QToolButton:pressed { background-color: #4d4d4d; border: 1px solid #6d6d6d; }
         """
         self.setStyleSheet(dark_stylesheet)
+
+    def _get_icon(self, icon_name: str) -> QIcon:
+        """Load an SVG icon based on current theme."""
+        from pathlib import Path
+
+        theme = "light" if self.current_theme == "light" else "dark"
+        icon_path = Path(__file__).parent / "resources" / "icons" / theme / f"{icon_name}.svg"
+
+        if icon_path.exists():
+            return QIcon(str(icon_path))
+        else:
+            # Fallback to empty icon if file doesn't exist
+            return QIcon()
+
+    def _reload_toolbar_icons(self):
+        """Reload all toolbar icons for the current theme."""
+        if not hasattr(self, "main_toolbar"):
+            return
+
+        icon_map = {
+            0: "open-files",
+            1: "open-folders",
+            3: "save",
+            4: "find",
+            6: "next",
+            7: "previous",
+            9: "copy-right",
+            10: "copy-left",
+            12: "copy-all-right",
+            13: "copy-all-left",
+        }
+
+        for action_index, icon_name in icon_map.items():
+            action = self.main_toolbar.actions()[action_index]
+            action.setIcon(self._get_icon(icon_name))
 
     def _apply_toolbar_theme(self):
         """Apply current theme to toolbar."""
