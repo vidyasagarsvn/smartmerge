@@ -52,7 +52,7 @@ class FolderCompareWidget(QWidget):
         # Create table widget
         self.table = QTableWidget()
         self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Name", "Type", "Left", "Right"])
+        self.table.setHorizontalHeaderLabels(["Name", "Status", "Left", "Right"])
 
         # Configure columns
         header = self.table.horizontalHeader()
@@ -143,10 +143,11 @@ class FolderCompareWidget(QWidget):
 
         self.table.setItem(row, 0, name_item)
 
-        # Type column
-        type_item = QTableWidgetItem(item.type.value)
-        type_item.setFlags(type_item.flags() & ~Qt.ItemIsEditable)
-        self.table.setItem(row, 1, type_item)
+        # Status column - show meaningful status text
+        status_text = self._status_to_text(item.status)
+        status_item = QTableWidgetItem(status_text)
+        status_item.setFlags(status_item.flags() & ~Qt.ItemIsEditable)
+        self.table.setItem(row, 1, status_item)
 
         # Left status column
         left_text, left_color = self._status_to_display(item.status, side="left")
@@ -163,6 +164,20 @@ class FolderCompareWidget(QWidget):
         if right_color:
             right_item.setBackground(right_color)
         self.table.setItem(row, 3, right_item)
+
+    def _status_to_text(self, status: ItemStatus) -> str:
+        """Convert status enum to human-readable text."""
+        status_map = {
+            ItemStatus.IDENTICAL: "Identical",
+            ItemStatus.MODIFIED: "Modified",
+            ItemStatus.ADDED_LEFT: "Left Only",
+            ItemStatus.ADDED_RIGHT: "Right Only",
+            ItemStatus.DELETED_LEFT: "Left Missing",
+            ItemStatus.DELETED_RIGHT: "Right Missing",
+            ItemStatus.FOLDER_LEFT_ONLY: "Left Only",
+            ItemStatus.FOLDER_RIGHT_ONLY: "Right Only",
+        }
+        return status_map.get(status, "Unknown")
 
     def _status_to_display(
         self, status: ItemStatus, side: str
