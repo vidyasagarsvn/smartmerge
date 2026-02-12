@@ -51,16 +51,14 @@ class FolderCompareWidget(QWidget):
 
         # Create table widget
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Name", "Status", "Left", "Right"])
+        self.table.setColumnCount(2)
+        self.table.setHorizontalHeaderLabels(["Name", "Status"])
 
         # Configure columns
         header = self.table.horizontalHeader()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(0, QHeaderView.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
 
         # Set row height
         self.table.verticalHeader().setDefaultSectionSize(22)
@@ -143,88 +141,26 @@ class FolderCompareWidget(QWidget):
 
         self.table.setItem(row, 0, name_item)
 
-        # Status column - show meaningful status text
-        status_text = self._status_to_text(item.status)
-        status_item = QTableWidgetItem(status_text)
+        # Status column - show icon and text for status
+        status_icon, status_text = self._status_to_icon(item.status)
+        status_item = QTableWidgetItem(f"{status_icon} {status_text}")
         status_item.setFlags(status_item.flags() & ~Qt.ItemIsEditable)
         self.table.setItem(row, 1, status_item)
 
-        # Left status column
-        left_text, left_color = self._status_to_display(item.status, side="left")
-        left_item = QTableWidgetItem(left_text)
-        left_item.setFlags(left_item.flags() & ~Qt.ItemIsEditable)
-        if left_color:
-            left_item.setBackground(left_color)
-        self.table.setItem(row, 2, left_item)
-
-        # Right status column
-        right_text, right_color = self._status_to_display(item.status, side="right")
-        right_item = QTableWidgetItem(right_text)
-        right_item.setFlags(right_item.flags() & ~Qt.ItemIsEditable)
-        if right_color:
-            right_item.setBackground(right_color)
-        self.table.setItem(row, 3, right_item)
-
-    def _status_to_text(self, status: ItemStatus) -> str:
-        """Convert status enum to human-readable text."""
+    def _status_to_icon(self, status: ItemStatus) -> tuple[str, str]:
+        """Convert status enum to icon and human-readable text."""
         status_map = {
-            ItemStatus.IDENTICAL: "Identical",
-            ItemStatus.MODIFIED: "Modified",
-            ItemStatus.ADDED_LEFT: "Left Only",
-            ItemStatus.ADDED_RIGHT: "Right Only",
-            ItemStatus.DELETED_LEFT: "Left Missing",
-            ItemStatus.DELETED_RIGHT: "Right Missing",
-            ItemStatus.FOLDER_LEFT_ONLY: "Left Only",
-            ItemStatus.FOLDER_RIGHT_ONLY: "Right Only",
+            ItemStatus.IDENTICAL: ("✅", "Identical"),
+            ItemStatus.MODIFIED: ("📝", "Modified"),
+            ItemStatus.ADDED_LEFT: ("➡️", "Left Only"),
+            ItemStatus.ADDED_RIGHT: ("⬅️", "Right Only"),
+            ItemStatus.DELETED_LEFT: ("❌", "Left Missing"),
+            ItemStatus.DELETED_RIGHT: ("❌", "Right Missing"),
+            ItemStatus.FOLDER_LEFT_ONLY: ("➡️", "Left Only"),
+            ItemStatus.FOLDER_RIGHT_ONLY: ("⬅️", "Right Only"),
         }
-        return status_map.get(status, "Unknown")
-
-    def _status_to_display(
-        self, status: ItemStatus, side: str
-    ) -> tuple[str, QColor | None]:
-        """Convert status enum to display text and color."""
-        # Get theme-aware colors
-        if self.theme == "dark":
-            identical_color = QColor(45, 80, 45)  # Dark green
-            modified_color = QColor(100, 90, 20)  # Dark amber/yellow
-            added_color = QColor(45, 80, 45)  # Dark green
-            deleted_color = QColor(80, 40, 40)  # Dark red
-        else:
-            identical_color = QColor(200, 255, 200)  # Light green
-            modified_color = QColor(255, 255, 200)  # Light yellow
-            added_color = QColor(200, 255, 200)  # Light green
-            deleted_color = QColor(255, 200, 200)  # Light red
-
-        if status == ItemStatus.IDENTICAL:
-            return "✓", identical_color
-        elif status == ItemStatus.MODIFIED:
-            return "≠", modified_color
-        elif status == ItemStatus.ADDED_LEFT:
-            return (
-                "+" if side == "left" else "",
-                added_color if side == "left" else None,
-            )
-        elif status == ItemStatus.ADDED_RIGHT:
-            return (
-                "" if side == "left" else "+",
-                added_color if side == "right" else None,
-            )
-        elif status == ItemStatus.DELETED_LEFT:
-            return (
-                "-" if side == "left" else "",
-                deleted_color if side == "left" else None,
-            )
-        elif status == ItemStatus.DELETED_RIGHT:
-            return (
-                "" if side == "left" else "-",
-                deleted_color if side == "right" else None,
-            )
-        elif status == ItemStatus.FOLDER_LEFT_ONLY:
-            return "📁" if side == "left" else "", None
-        elif status == ItemStatus.FOLDER_RIGHT_ONLY:
-            return "" if side == "left" else "📁", None
-
-        return "", None
+        icon, text = status_map.get(status, ("❓", "Unknown"))
+        return icon, text
 
     def _on_cell_double_clicked(self, row: int, col: int):
         """Handle double-click on table cell."""
