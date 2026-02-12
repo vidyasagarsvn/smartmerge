@@ -1,0 +1,8 @@
+LICENSE.txt - Only in left folder
+
+This software is licensed under the GPL-3.0-or-later license.
+
+You are free to use, modify, and distribute this software under the terms
+of the GNU General Public License version 3 or any later version.
+
+For more details, see https://www.gnu.org/licenses/gpl-3.0.html

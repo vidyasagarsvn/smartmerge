@@ -1,0 +1,16 @@
+{
+  "project": "SmartMerge",
+  "version": "0.1.0",
+  "author": "Development Team",
+  "license": "GPL-3.0-or-later",
+  "description": "A cross-platform file and folder comparison tool",
+  "keywords": ["diff", "merge", "compare", "tools"],
+  "dependencies": {
+    "pyside6": "^6.0.0",
+    "python-Levenshtein": "^0.20.0"
+  },
+  "devDependencies": {
+    "pytest": "^7.0.0",
+    "ruff": "^0.1.0"
+  }
+}
