@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QFontDialog,
     QStackedWidget,
     QFileDialog,
+    QMessageBox,
 )
 from PySide6.QtCore import QSettings
 from PySide6.QtGui import QAction, QIcon, QFont
@@ -93,7 +94,7 @@ class MainWindow(QMainWindow):
         open_folders_action.setShortcut(
             _get_platform_shortcut("Ctrl+Shift+O", "Cmd+Shift+O")
         )
-        self.back_action.setShortcut(_get_platform_shortcut("Ctrl+B", "Cmd+B"))
+        self.back_action.setShortcut("Escape")
         exit_action.setShortcut(_get_platform_shortcut("Ctrl+Q", "Cmd+Q"))
         open_files_action.triggered.connect(self.open_files_dialog)
         open_folders_action.triggered.connect(self.open_folders_dialog)
@@ -418,6 +419,11 @@ class MainWindow(QMainWindow):
 
     def back_to_folder_view(self):
         """Return to the folder comparison view."""
+        # Check for unsaved changes
+        if self._has_unsaved_changes():
+            if not self._show_unsaved_changes_dialog("Back to Folder View"):
+                return  # User cancelled
+
         if self.viewing_from_folder:
             self.stacked_widget.setCurrentIndex(1)
             self.viewing_from_folder = False
@@ -509,6 +515,47 @@ class MainWindow(QMainWindow):
         """Open the go to line dialog."""
         if self.stacked_widget.currentIndex() == 0:
             self.file_compare.show_go_to_line_dialog()
+
+    def _has_unsaved_changes(self) -> bool:
+        """Check if there are unsaved changes in the file comparison."""
+        return self.file_compare.is_left_modified or self.file_compare.is_right_modified
+
+    def _show_unsaved_changes_dialog(self, action_name: str) -> bool:
+        """
+        Show a dialog asking user if they want to save unsaved changes.
+        Returns True if user wants to proceed, False if cancelled.
+        """
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("Unsaved Changes")
+        dialog.setText("You have unsaved changes in the file comparison.")
+        dialog.setInformativeText(f"Do you want to save before {action_name.lower()}?")
+        dialog.setIcon(QMessageBox.Warning)
+
+        # Add buttons
+        save_button = dialog.addButton("Save", QMessageBox.AcceptRole)
+        discard_button = dialog.addButton("Discard", QMessageBox.DestructiveRole)
+        cancel_button = dialog.addButton("Cancel", QMessageBox.RejectRole)
+
+        dialog.setDefaultButton(save_button)
+        dialog.exec()
+
+        clicked_button = dialog.clickedButton()
+        if clicked_button == save_button:
+            self.file_compare.save_left()
+            self.file_compare.save_right()
+            return True
+        elif clicked_button == discard_button:
+            return True
+        else:  # Cancel
+            return False
+
+    def closeEvent(self, event):
+        """Handle window close event."""
+        if self._has_unsaved_changes():
+            if not self._show_unsaved_changes_dialog("Quit"):
+                event.ignore()
+                return
+        event.accept()
 
 
 def main():
