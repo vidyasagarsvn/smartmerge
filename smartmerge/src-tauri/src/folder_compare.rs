@@ -105,10 +105,6 @@ pub fn compare_folders(left_path: &str, right_path: &str) -> Result<Vec<FolderIt
     Ok(results)
 }
 
-pub fn is_folder_navigable(item: &FolderItem) -> bool {
-    matches!(item.item_type, ItemType::Folder) && item.left_path.is_some() && item.right_path.is_some()
-}
-
 fn read_entries(path: &Path) -> Result<BTreeMap<String, std::path::PathBuf>, String> {
     let mut entries = BTreeMap::new();
     let dir_entries = fs::read_dir(path).map_err(|err| err.to_string())?;

@@ -15,12 +15,13 @@ pub fn myers_opcodes(left: &[String], right: &[String]) -> Vec<Opcode> {
         let mut v_next: HashMap<i32, i32> = HashMap::new();
         let mut k = -d;
         while k <= d {
-            let x;
-            if k == -d || (k != d && v.get(&(k - 1)).unwrap_or(&-1) < v.get(&(k + 1)).unwrap_or(&-1)) {
-                x = *v.get(&(k + 1)).unwrap_or(&0);
+            let x = if k == -d
+                || (k != d && v.get(&(k - 1)).unwrap_or(&-1) < v.get(&(k + 1)).unwrap_or(&-1))
+            {
+                *v.get(&(k + 1)).unwrap_or(&0)
             } else {
-                x = v.get(&(k - 1)).unwrap_or(&0) + 1;
-            }
+                v.get(&(k - 1)).unwrap_or(&0) + 1
+            };
             let mut x_mut = x;
             let mut y_mut = x_mut - k;
             while x_mut < n && y_mut < m {

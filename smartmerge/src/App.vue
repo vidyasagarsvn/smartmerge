@@ -2,7 +2,7 @@
 import { ref, watchEffect, computed, onMounted, onBeforeUnmount } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { confirm, message, open } from "@tauri-apps/plugin-dialog";
+import { confirm, open } from "@tauri-apps/plugin-dialog";
 import TopToolbar from "./components/TopToolbar.vue";
 import FileCompareView from "./components/FileCompareView.vue";
 import FolderCompareView from "./components/FolderCompareView.vue";
@@ -312,10 +312,11 @@ const handleFolderNavigate = async (left: string, right: string) => {
 };
 
 const handleFolderFileOpen = async (left: string, right: string) => {
-    await updateMenuState();
+  leftPath.value = left;
   rightPath.value = right;
   viewingFromFolder.value = true;
   await loadFileDiff();
+  await updateMenuState();
 };
 
 const toggleEngine = async () => {
@@ -581,16 +582,18 @@ const onKeydown = (event: KeyboardEvent) => {
     handlePrevChange();
   } else if (event.altKey && key === "arrowright") {
     event.preventDefault();
-    handleCopyToRight();
+    if (mod) {
+      handleCopyAllToRight();
+    } else {
+      handleCopyToRight();
+    }
   } else if (event.altKey && key === "arrowleft") {
     event.preventDefault();
-    handleCopyToLeft();
-  } else if (mod && event.altKey && key === "arrowright") {
-    event.preventDefault();
-    handleCopyAllToRight();
-  } else if (mod && event.altKey && key === "arrowleft") {
-    event.preventDefault();
-    handleCopyAllToLeft();
+    if (mod) {
+      handleCopyAllToLeft();
+    } else {
+      handleCopyToLeft();
+    }
   }
 };
 
@@ -601,8 +604,6 @@ onMounted(async () => {
   const storedEngine = localStorage.getItem("smartmerge.engine");
   const storedCodeFont = localStorage.getItem("smartmerge.codeFont");
   const storedCodeFontSize = localStorage.getItem("smartmerge.codeFontSize");
-  const storedLeft = localStorage.getItem("smartmerge.lastLeftPath");
-  const storedRight = localStorage.getItem("smartmerge.lastRightPath");
 
   if (storedTheme === "light" || storedTheme === "dark") {
     theme.value = storedTheme;
@@ -619,6 +620,8 @@ onMounted(async () => {
       codeFontSize.value = parsed;
     }
   }
+  leftPath.value = null;
+  rightPath.value = null;
 
   window.addEventListener("keydown", onKeydown);
   unlistenMenu = await listen<string>("menu-action", (event) => {

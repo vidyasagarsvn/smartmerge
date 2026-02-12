@@ -129,49 +129,31 @@ fn save_file(path: String, lines: Vec<String>) -> Result<(), String> {
     write_lines(&path, &lines)
 }
 
-fn color_icon(rgb: [u8; 3]) -> Image<'static> {
-    let size = 16u32;
-    let mut rgba = vec![0u8; (size * size * 4) as usize];
-    let center = (size as f32 - 1.0) / 2.0;
-    let radius = 7.0f32;
-    for y in 0..size {
-        for x in 0..size {
-            let dx = x as f32 - center;
-            let dy = y as f32 - center;
-            let idx = ((y * size + x) * 4) as usize;
-            if dx * dx + dy * dy <= radius * radius {
-                rgba[idx] = rgb[0];
-                rgba[idx + 1] = rgb[1];
-                rgba[idx + 2] = rgb[2];
-                rgba[idx + 3] = 255;
-            }
-        }
-    }
-    Image::new_owned(rgba, size, size)
+fn load_icon(bytes: &'static [u8]) -> tauri::Result<Image<'static>> {
+    Image::from_bytes(bytes)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let icon_open_files = color_icon([75, 123, 236]);
-            let icon_open_folders = color_icon([244, 184, 74]);
-            let icon_back = color_icon([108, 92, 231]);
-            let icon_save = color_icon([39, 174, 96]);
-            let icon_save_all = color_icon([26, 188, 156]);
-            let icon_undo = color_icon([242, 153, 74]);
-            let icon_redo = color_icon([242, 153, 74]);
-            let icon_prev = color_icon([155, 89, 182]);
-            let icon_next = color_icon([155, 89, 182]);
-            let icon_copy_left = color_icon([231, 111, 81]);
-            let icon_copy_right = color_icon([231, 111, 81]);
-            let icon_copy_all_left = color_icon([231, 111, 81]);
-            let icon_copy_all_right = color_icon([231, 111, 81]);
-            let icon_engine = color_icon([0, 184, 148]);
-            let icon_theme = color_icon([255, 209, 102]);
-            let icon_about = color_icon([108, 117, 125]);
-            let icon_quit = color_icon([231, 111, 81]);
-            let icon_font = color_icon([75, 123, 236]);
+            let icon_open_files = load_icon(include_bytes!("../icons/menu/open-files.png"))?;
+            let icon_open_folders = load_icon(include_bytes!("../icons/menu/open-folders.png"))?;
+            let icon_back = load_icon(include_bytes!("../icons/menu/back.png"))?;
+            let icon_save = load_icon(include_bytes!("../icons/menu/save.png"))?;
+            let icon_save_all = load_icon(include_bytes!("../icons/menu/save-all.png"))?;
+            let icon_undo = load_icon(include_bytes!("../icons/menu/undo.png"))?;
+            let icon_redo = load_icon(include_bytes!("../icons/menu/redo.png"))?;
+            let icon_prev = load_icon(include_bytes!("../icons/menu/prev.png"))?;
+            let icon_next = load_icon(include_bytes!("../icons/menu/next.png"))?;
+            let icon_copy_left = load_icon(include_bytes!("../icons/menu/copy-left.png"))?;
+            let icon_copy_right = load_icon(include_bytes!("../icons/menu/copy-right.png"))?;
+            let icon_copy_all_left = load_icon(include_bytes!("../icons/menu/copy-all-left.png"))?;
+            let icon_copy_all_right = load_icon(include_bytes!("../icons/menu/copy-all-right.png"))?;
+            let icon_theme = load_icon(include_bytes!("../icons/menu/theme.png"))?;
+            let icon_about = load_icon(include_bytes!("../icons/menu/about.png"))?;
+            let icon_quit = load_icon(include_bytes!("../icons/menu/quit.png"))?;
+            let icon_font = load_icon(include_bytes!("../icons/menu/font.png"))?;
             let open_files = IconMenuItem::with_id(
                 app,
                 "open-files",
@@ -292,14 +274,6 @@ pub fn run() {
                 Some(icon_copy_all_right.clone()),
                 Some("CmdOrCtrl+Alt+Right"),
             )?;
-            let engine = IconMenuItem::with_id(
-                app,
-                "engine",
-                "Toggle Engine",
-                true,
-                Some(icon_engine.clone()),
-                None::<&str>,
-            )?;
             let theme = IconMenuItem::with_id(
                 app,
                 "theme",
@@ -361,7 +335,6 @@ pub fn run() {
                 .build()?;
 
             let view_menu = SubmenuBuilder::new(app, "&View")
-                .item(&engine)
                 .item(&theme)
                 .build()?;
 

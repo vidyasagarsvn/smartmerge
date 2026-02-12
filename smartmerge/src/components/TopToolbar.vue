@@ -34,8 +34,6 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ action: [ActionId] }>();
 
-const themeLabel = computed(() => (props.theme === "light" ? "Dark" : "Light"));
-const engineLabel = computed(() => (props.engine === "smart" ? "Smart" : "Myers"));
 const themeToggleTitle = computed(() =>
   props.theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"
 );
@@ -254,19 +252,6 @@ function onAction(action: ActionId) {
     </div>
 
     <div class="toolbar__group toolbar__group--end">
-      <button
-        class="tool-btn tool-btn--icon"
-        type="button"
-        aria-label="Toggle Engine"
-        :title="`Toggle Engine (current: ${engineLabel})`"
-        @click="onAction('engine')"
-      >
-        <span class="tool-icon" aria-hidden="true">
-          <svg class="icon-engine" viewBox="0 0 20 20">
-            <path d="M11 2 4 12h5l-1 6 8-11h-5l1-5z" />
-          </svg>
-        </span>
-      </button>
       <button
         class="tool-btn tool-btn--icon tool-btn--accent"
         type="button"
