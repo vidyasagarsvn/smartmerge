@@ -1,21 +1,18 @@
 <Application x:Class="SmartMerge.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             StartupUri="Views/MainWindow.xaml">
+             xmlns:utils="clr-namespace:SmartMerge.Utils">
     <Application.Resources>
         <ResourceDictionary>
-            <!-- Theme Resources -->
-            <Color x:Key="PrimaryColor">#007ACC</Color>
-            <Color x:Key="SecondaryColor">#F3F3F3</Color>
-            <Color x:Key="DarkBackgroundColor">#252526</Color>
-            <Color x:Key="LightTextColor">#FFFFFF</Color>
-            <Color x:Key="DarkTextColor">#1E1E1E</Color>
-            
-            <!-- Diff Colors -->
-            <Color x:Key="AddedLineColor">#E2FFE2</Color>
-            <Color x:Key="RemovedLineColor">#FFE2E2</Color>
-            <Color x:Key="ModifiedLineColor">#E2E6FF</Color>
-            <Color x:Key="ConflictLineColor">#FFE2B6</Color>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Light.xaml" />
+                <ResourceDictionary Source="Resources/Icons.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <utils:DiffKindToBrushConverter x:Key="DiffKindToBrushConverter" />
+            <utils:FolderStatusToTextConverter x:Key="FolderStatusToTextConverter" />
+            <utils:FolderNameConverter x:Key="FolderNameConverter" />
+            <utils:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

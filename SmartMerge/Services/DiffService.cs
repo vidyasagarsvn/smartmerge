@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using DiffPlex;
 using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
@@ -10,11 +13,11 @@ namespace SmartMerge.Services
     /// </summary>
     public class DiffService
     {
-        private readonly IDiffBuilder _diffBuilder;
+        private readonly ISideBySideDiffBuilder _diffBuilder;
 
         public DiffService()
         {
-            _diffBuilder = new SideBySideDiffBuilder(new DiffMatchPatch());
+            _diffBuilder = new SideBySideDiffBuilder(new Differ());
         }
 
         /// <summary>
@@ -69,29 +72,30 @@ namespace SmartMerge.Services
         private List<DiffLine> BuildDiffLines(SideBySideDiffModel diffModel)
         {
             var diffLines = new List<DiffLine>();
-
-            if (diffModel.OldSideChanges == null || diffModel.NewSideChanges == null)
+            if (diffModel == null || diffModel.OldText == null || diffModel.NewText == null)
                 return diffLines;
 
-            int leftLineNum = 1;
-            int rightLineNum = 1;
-
-            foreach (var line in diffModel.OldSideChanges)
+            int maxLines = Math.Max(diffModel.OldText.Lines.Count, diffModel.NewText.Lines.Count);
+            for (int i = 0; i < maxLines; i++)
             {
+                var leftLine = i < diffModel.OldText.Lines.Count ? diffModel.OldText.Lines[i] : null;
+                var rightLine = i < diffModel.NewText.Lines.Count ? diffModel.NewText.Lines[i] : null;
+
                 var diffLine = new DiffLine
                 {
-                    LeftLineNumber = line.Position,
-                    LeftContent = line.Text ?? string.Empty,
-                    Type = line.Type switch
-                    {
-                        ChangeType.Deleted => DiffLineType.Removed,
-                        ChangeType.Inserted => DiffLineType.Added,
-                        _ => DiffLineType.Unchanged
-                    }
+                    LeftLineNumber = leftLine?.Position ?? 0,
+                    RightLineNumber = rightLine?.Position ?? 0,
+                    LeftContent = leftLine?.Text ?? string.Empty,
+                    RightContent = rightLine?.Text ?? string.Empty,
+                    Type = leftLine != null && rightLine != null
+                        ? (leftLine.Type == ChangeType.Unchanged && rightLine.Type == ChangeType.Unchanged ? DiffLineType.Unchanged :
+                            leftLine.Type == ChangeType.Deleted ? DiffLineType.Removed :
+                            rightLine.Type == ChangeType.Inserted ? DiffLineType.Added : DiffLineType.Modified)
+                        : (leftLine != null ? (leftLine.Type == ChangeType.Deleted ? DiffLineType.Removed : DiffLineType.Unchanged)
+                            : (rightLine != null && rightLine.Type == ChangeType.Inserted ? DiffLineType.Added : DiffLineType.Unchanged))
                 };
                 diffLines.Add(diffLine);
             }
-
             return diffLines;
         }
     }

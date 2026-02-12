@@ -1,0 +1,110 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="IconBrush" Color="{DynamicResource TextForegroundColor}" />
+
+    <DrawingImage x:Key="IconOpenFiles">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M3,2 L10,2 L13,5 L13,14 L3,14 Z M10,2 L10,5 L13,5 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconOpenFolders">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M2,5 L7,5 L8.5,3 L14,3 L14,13 L2,13 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconSave">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M2,2 L13,2 L14,3 L14,14 L2,14 Z M4,2 L4,6 L12,6 L12,2 Z M5,9 L11,9 L11,13 L5,13 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconFind">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M7,2 A5,5 0 1 1 6.9,2 Z" />
+                <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M10.5,10.5 L14,14 L12.8,15.2 L9.3,11.7 Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconPrev">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M11.5,3 L4,8 L11.5,13 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconNext">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M4.5,3 L12,8 L4.5,13 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconCopyRight">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M2,3 L2,13 L4,13 L4,9 L11,9 L11,11 L14,8 L11,5 L11,7 L4,7 L4,3 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconCopyLeft">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M14,3 L14,13 L12,13 L12,9 L5,9 L5,11 L2,8 L5,5 L5,7 L12,7 L12,3 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconCopyAllRight">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M2,3 L2,13 L4,13 L4,9 L8.5,9 L8.5,11 L11.5,8 L8.5,5 L8.5,7 L4,7 L4,3 Z M9.5,3 L9.5,7 L13.5,7 L13.5,5 L15,8 L13.5,11 L13.5,9 L9.5,9 L9.5,13 L11.5,13 L11.5,3 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconCopyAllLeft">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M14,3 L14,13 L12,13 L12,9 L7.5,9 L7.5,11 L4.5,8 L7.5,5 L7.5,7 L12,7 L12,3 Z M6.5,3 L6.5,7 L2.5,7 L2.5,5 L1,8 L2.5,11 L2.5,9 L6.5,9 L6.5,13 L4.5,13 L4.5,3 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconUndo">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M6,4 L2,8 L6,12 L6,9 L12.5,9 L12.5,7 L6,7 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconRedo">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M10,4 L14,8 L10,12 L10,9 L3.5,9 L3.5,7 L10,7 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconBack">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M8,3 L3,8 L8,13 L8,9 L13,9 L13,7 L8,7 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconGoToLine">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M2,3 L11,3 L11,5 L2,5 Z M2,7 L9,7 L9,9 L2,9 Z M2,11 L7,11 L7,13 L2,13 Z" />
+                <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M12,6 L15,8 L12,10 Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconExit">
+        <DrawingImage.Drawing>
+            <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M3,3 L9,3 L9,5 L5,5 L5,11 L9,11 L9,13 L3,13 Z M9,7 L13,7 L13,5 L15,8 L13,11 L13,9 L9,9 Z" />
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="IconAbout">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="{DynamicResource IconBrush}" Geometry="M8,1 A7,7 0 1 1 7.9,1 Z" />
+                <GeometryDrawing Brush="{DynamicResource AppBackgroundBrush}" Geometry="M7,4 L9,4 L9,6 L7,6 Z" />
+                <GeometryDrawing Brush="{DynamicResource AppBackgroundBrush}" Geometry="M7,7 L9,7 L9,12 L7,12 Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+</ResourceDictionary>

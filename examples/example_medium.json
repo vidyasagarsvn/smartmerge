@@ -1,0 +1,15 @@
+{
+  "name": "Medium Example",
+  "description": "A medium-sized JSON object for diff testing.",
+  "items": [
+    {"id": 1, "value": "A"},
+    {"id": 2, "value": "B"},
+    {"id": 3, "value": "C"},
+    {"id": 4, "value": "D"},
+    {"id": 5, "value": "E"}
+  ],
+  "meta": {
+    "created": "2026-02-11",
+    "author": "TestUser"
+  }
+}

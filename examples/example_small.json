@@ -1,0 +1,5 @@
+{
+  "name": "Small Example",
+  "description": "A small JSON object for diff testing.",
+  "items": [1, 2, 3]
+}

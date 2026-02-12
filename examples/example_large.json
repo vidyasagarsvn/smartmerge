@@ -1,0 +1,31 @@
+{
+  "name": "Large Example",
+  "description": "A large JSON object for diff testing.",
+  "items": [
+    {"id": 1, "value": "Item 1"},
+    {"id": 2, "value": "Item 2"},
+    {"id": 3, "value": "Item 3"},
+    {"id": 4, "value": "Item 4"},
+    {"id": 5, "value": "Item 5"},
+    {"id": 6, "value": "Item 6"},
+    {"id": 7, "value": "Item 7"},
+    {"id": 8, "value": "Item 8"},
+    {"id": 9, "value": "Item 9"},
+    {"id": 10, "value": "Item 10"},
+    {"id": 11, "value": "Item 11"},
+    {"id": 12, "value": "Item 12"},
+    {"id": 13, "value": "Item 13"},
+    {"id": 14, "value": "Item 14"},
+    {"id": 15, "value": "Item 15"},
+    {"id": 16, "value": "Item 16"},
+    {"id": 17, "value": "Item 17"},
+    {"id": 18, "value": "Item 18"},
+    {"id": 19, "value": "Item 19"},
+    {"id": 20, "value": "Item 20"}
+  ],
+  "meta": {
+    "created": "2026-02-11",
+    "author": "TestUser",
+    "tags": ["large", "test", "json"]
+  }
+}
