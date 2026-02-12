@@ -130,6 +130,18 @@ fn save_file(path: String, lines: Vec<String>) -> Result<(), String> {
     write_lines(&path, &lines)
 }
 
+#[tauri::command]
+fn get_path_kind(path: String) -> Result<String, String> {
+    let metadata = std::fs::metadata(&path).map_err(|_| "missing".to_string())?;
+    if metadata.is_file() {
+        Ok("file".to_string())
+    } else if metadata.is_dir() {
+        Ok("dir".to_string())
+    } else {
+        Ok("other".to_string())
+    }
+}
+
 fn load_icon(bytes: &'static [u8]) -> tauri::Result<Image<'static>> {
     Image::from_bytes(bytes)
 }
@@ -384,7 +396,8 @@ pub fn run() {
             compare_lines,
             compare_folders_command,
             save_file,
-            set_menu_state
+            set_menu_state,
+            get_path_kind
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

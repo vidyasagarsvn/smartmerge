@@ -60,6 +60,8 @@ const viewingFromFolder = ref(false);
 const fileCompareRef = ref<InstanceType<typeof FileCompareView> | null>(null);
 const folderLeftPath = ref<string | null>(null);
 const folderRightPath = ref<string | null>(null);
+const folderRootLeft = ref<string | null>(null);
+const folderRootRight = ref<string | null>(null);
 let unlistenMenu: UnlistenFn | null = null;
 
 const canUndo = computed(() => undoStack.value.length > 0);
@@ -82,10 +84,16 @@ const canBack = computed(() =>
 );
 const showAbout = ref(false);
 const showFontPicker = ref(false);
+const showOpenFiles = ref(false);
+const showOpenFolders = ref(false);
+const openFilesError = ref("");
+const openFoldersError = ref("");
 const codeFont = ref("IBM Plex Mono");
 const codeFontSize = ref(14);
 const draftCodeFont = ref(codeFont.value);
 const draftCodeFontSize = ref(codeFontSize.value);
+const draftLeftPath = ref("");
+const draftRightPath = ref("");
 const fontOptions = [
   "Consolas",
   "Cascadia Code",
@@ -216,31 +224,14 @@ const handleRedo = async () => {
   await refreshDiffFromLines();
 };
 
-async function openFilePair() {
-  const left = await open({
-    multiple: false,
-    filters: [{ name: "All Files", extensions: ["*"] }],
-  });
-  if (!left || Array.isArray(left)) {
-    statusText.value = "Left file selection cancelled.";
-    return;
-  }
-
-  const right = await open({
-    multiple: false,
-    filters: [{ name: "All Files", extensions: ["*"] }],
-  });
-  if (!right || Array.isArray(right)) {
-    statusText.value = "Right file selection cancelled.";
-    return;
-  }
-
-  leftPath.value = left;
-  rightPath.value = right;
-  localStorage.setItem("smartmerge.lastLeftPath", left);
-  localStorage.setItem("smartmerge.lastRightPath", right);
-  await loadFileDiff();
-}
+const openFilePair = () => {
+  openFilesError.value = "";
+  draftLeftPath.value =
+    localStorage.getItem("smartmerge.lastLeftFilePath") ?? "";
+  draftRightPath.value =
+    localStorage.getItem("smartmerge.lastRightFilePath") ?? "";
+  showOpenFiles.value = true;
+};
 
 async function loadFileDiff() {
   if (!leftPath.value || !rightPath.value) {
@@ -269,26 +260,97 @@ async function loadFileDiff() {
   }
 }
 
-async function openFolderPair() {
-  const left = await open({ directory: true, multiple: false });
-  if (!left || Array.isArray(left)) {
-    statusText.value = "Left folder selection cancelled.";
+const openFolderPair = () => {
+  openFoldersError.value = "";
+  draftLeftPath.value =
+    localStorage.getItem("smartmerge.lastLeftFolderPath") ?? "";
+  draftRightPath.value =
+    localStorage.getItem("smartmerge.lastRightFolderPath") ?? "";
+  showOpenFolders.value = true;
+};
+
+const getPathKind = async (path: string) => {
+  try {
+    return await invoke<string>("get_path_kind", { path });
+  } catch {
+    return "missing";
+  }
+};
+
+const browseDraftPath = async (side: "left" | "right", mode: "file" | "folder") => {
+  const selection = await open({
+    multiple: false,
+    directory: mode === "folder",
+    filters: mode === "file" ? [{ name: "All Files", extensions: ["*"] }] : undefined,
+  });
+  if (!selection || Array.isArray(selection)) {
     return;
   }
+  if (mode === "file") {
+    openFilesError.value = "";
+  } else {
+    openFoldersError.value = "";
+  }
+  if (side === "left") {
+    draftLeftPath.value = selection;
+  } else {
+    draftRightPath.value = selection;
+  }
+};
 
-  const right = await open({ directory: true, multiple: false });
-  if (!right || Array.isArray(right)) {
-    statusText.value = "Right folder selection cancelled.";
+const swapDraftPaths = () => {
+  const temp = draftLeftPath.value;
+  draftLeftPath.value = draftRightPath.value;
+  draftRightPath.value = temp;
+};
+
+const closeOpenModal = () => {
+  showOpenFiles.value = false;
+  showOpenFolders.value = false;
+};
+
+const confirmOpenFiles = async () => {
+  if (!draftLeftPath.value || !draftRightPath.value) {
     return;
   }
+  const [leftKind, rightKind] = await Promise.all([
+    getPathKind(draftLeftPath.value),
+    getPathKind(draftRightPath.value),
+  ]);
+  if (leftKind !== "file" || rightKind !== "file") {
+    openFilesError.value = "Both selections must be files.";
+    return;
+  }
+  leftPath.value = draftLeftPath.value;
+  rightPath.value = draftRightPath.value;
+  localStorage.setItem("smartmerge.lastLeftFilePath", draftLeftPath.value);
+  localStorage.setItem("smartmerge.lastRightFilePath", draftRightPath.value);
+  showOpenFiles.value = false;
+  await loadFileDiff();
+};
 
-  leftPath.value = left;
-  rightPath.value = right;
-  localStorage.setItem("smartmerge.lastLeftPath", left);
-  localStorage.setItem("smartmerge.lastRightPath", right);
+const confirmOpenFolders = async () => {
+  if (!draftLeftPath.value || !draftRightPath.value) {
+    return;
+  }
+  const [leftKind, rightKind] = await Promise.all([
+    getPathKind(draftLeftPath.value),
+    getPathKind(draftRightPath.value),
+  ]);
+  if (leftKind !== "dir" || rightKind !== "dir") {
+    openFoldersError.value = "Both selections must be folders.";
+    return;
+  }
+  leftPath.value = draftLeftPath.value;
+  rightPath.value = draftRightPath.value;
+  folderRootLeft.value = draftLeftPath.value;
+  folderRootRight.value = draftRightPath.value;
+  localStorage.setItem("smartmerge.lastLeftFolderPath", draftLeftPath.value);
+  localStorage.setItem("smartmerge.lastRightFolderPath", draftRightPath.value);
   navigationStack.value = [];
+  showOpenFolders.value = false;
   await loadFolderCompare();
-}
+};
 
 async function loadFolderCompare() {
   if (!leftPath.value || !rightPath.value) {
@@ -314,6 +376,10 @@ async function loadFolderCompare() {
 const handleFolderNavigate = async (left: string, right: string) => {
   if (leftPath.value && rightPath.value) {
     navigationStack.value.push({ left: leftPath.value, right: rightPath.value });
+  }
+  if (!folderRootLeft.value || !folderRootRight.value) {
+    folderRootLeft.value = leftPath.value;
+    folderRootRight.value = rightPath.value;
   }
   leftPath.value = left;
   rightPath.value = right;
@@ -546,6 +612,10 @@ const handleBack = async () => {
     if (restoredLeft && restoredRight) {
       leftPath.value = restoredLeft;
       rightPath.value = restoredRight;
+      if (!folderRootLeft.value || !folderRootRight.value) {
+        folderRootLeft.value = restoredLeft;
+        folderRootRight.value = restoredRight;
+      }
       await loadFolderCompare();
     } else {
       viewMode.value = "folder";
@@ -555,10 +625,16 @@ const handleBack = async () => {
     return;
   }
   if (viewMode.value === "file" && folderItems.value.length > 0) {
-    viewMode.value = "folder";
     viewingFromFolder.value = false;
-    statusText.value = "Back to folder view.";
-    await updateMenuState();
+    if (folderLeftPath.value && folderRightPath.value) {
+      leftPath.value = folderLeftPath.value;
+      rightPath.value = folderRightPath.value;
+      await loadFolderCompare();
+    } else {
+      viewMode.value = "folder";
+      statusText.value = "Back to folder view.";
+      await updateMenuState();
+    }
     return;
   }
   if (viewMode.value === "folder" && navigationStack.value.length > 0) {
@@ -754,6 +830,10 @@ function handleToolbarAction(action: string) {
       <FolderCompareView
         v-else
         :items="folderItems"
+        :left-root="leftPath ?? ''"
+        :right-root="rightPath ?? ''"
+        :base-left="folderRootLeft ?? leftPath ?? ''"
+        :base-right="folderRootRight ?? rightPath ?? ''"
         @navigate="handleFolderNavigate"
         @open-file="handleFolderFileOpen"
       />
@@ -819,6 +899,126 @@ function handleToolbarAction(action: string) {
         <button class="tool-btn modal__action" type="button" @click="applyFontSettings">
           OK
         </button>
+      </div>
+    </div>
+
+    <div v-if="showOpenFiles" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal modal--wide">
+        <div class="modal__header">
+          <span>Open Files for Comparison</span>
+          <button class="modal__close" type="button" @click="closeOpenModal">Close</button>
+        </div>
+        <label class="modal__label">
+          Left File
+          <div class="modal__row">
+            <input
+              v-model="draftLeftPath"
+              class="modal__input modal__path"
+              type="text"
+              readonly
+              :title="draftLeftPath"
+            />
+            <button
+              class="tool-btn modal__button"
+              type="button"
+              @click="browseDraftPath('left', 'file')"
+            >
+              Browse...
+            </button>
+          </div>
+        </label>
+        <label class="modal__label">
+          Right File
+          <div class="modal__row">
+            <input
+              v-model="draftRightPath"
+              class="modal__input modal__path"
+              type="text"
+              readonly
+              :title="draftRightPath"
+            />
+            <button
+              class="tool-btn modal__button"
+              type="button"
+              @click="browseDraftPath('right', 'file')"
+            >
+              Browse...
+            </button>
+          </div>
+        </label>
+        <p v-if="openFilesError" class="modal__error">{{ openFilesError }}</p>
+        <div class="modal__actions">
+          <button class="tool-btn" type="button" @click="closeOpenModal">Cancel</button>
+          <button class="tool-btn" type="button" @click="swapDraftPaths">Swap</button>
+          <button
+            class="tool-btn tool-btn--accent"
+            type="button"
+            :disabled="!draftLeftPath || !draftRightPath"
+            @click="confirmOpenFiles"
+          >
+            Compare
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showOpenFolders" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal modal--wide">
+        <div class="modal__header">
+          <span>Open Folders for Comparison</span>
+          <button class="modal__close" type="button" @click="closeOpenModal">Close</button>
+        </div>
+        <label class="modal__label">
+          Left Folder
+          <div class="modal__row">
+            <input
+              v-model="draftLeftPath"
+              class="modal__input modal__path"
+              type="text"
+              readonly
+              :title="draftLeftPath"
+            />
+            <button
+              class="tool-btn modal__button"
+              type="button"
+              @click="browseDraftPath('left', 'folder')"
+            >
+              Browse...
+            </button>
+          </div>
+        </label>
+        <label class="modal__label">
+          Right Folder
+          <div class="modal__row">
+            <input
+              v-model="draftRightPath"
+              class="modal__input modal__path"
+              type="text"
+              readonly
+              :title="draftRightPath"
+            />
+            <button
+              class="tool-btn modal__button"
+              type="button"
+              @click="browseDraftPath('right', 'folder')"
+            >
+              Browse...
+            </button>
+          </div>
+        </label>
+        <p v-if="openFoldersError" class="modal__error">{{ openFoldersError }}</p>
+        <div class="modal__actions">
+          <button class="tool-btn" type="button" @click="closeOpenModal">Cancel</button>
+          <button class="tool-btn" type="button" @click="swapDraftPaths">Swap</button>
+          <button
+            class="tool-btn tool-btn--accent"
+            type="button"
+            :disabled="!draftLeftPath || !draftRightPath"
+            @click="confirmOpenFolders"
+          >
+            Compare
+          </button>
+        </div>
       </div>
     </div>
   </div>

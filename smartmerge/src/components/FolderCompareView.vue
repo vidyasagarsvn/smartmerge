@@ -16,7 +16,13 @@ type FolderItem = {
   right_path: string | null;
 };
 
-const props = defineProps<{ items: FolderItem[] }>();
+const props = defineProps<{
+  items: FolderItem[];
+  leftRoot: string;
+  rightRoot: string;
+  baseLeft: string;
+  baseRight: string;
+}>();
 const emit = defineEmits<{
   navigate: [string, string];
   openFile: [string, string];
@@ -93,7 +99,9 @@ const statusKey = (status: FolderItem["status"]) => {
 };
 
 const filteredItems = computed(() =>
-  props.items.filter((item) => filterState.value[statusKey(item.status)])
+  props.items.filter((item) =>
+    item.item_type === "folder" ? true : filterState.value[statusKey(item.status)]
+  )
 );
 
 const sortedItems = computed(() => {
@@ -105,6 +113,42 @@ const sortedItems = computed(() => {
     return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
   });
 });
+
+const normalizePath = (value: string) => value.replace(/[\\/]+$/, "");
+
+const parentPath = (value: string) => {
+  const normalized = normalizePath(value);
+  if (!normalized) {
+    return "";
+  }
+  const separator = normalized.includes("\\") ? "\\" : "/";
+  const parts = normalized.split(separator).filter(Boolean);
+  if (parts.length <= 1) {
+    return "";
+  }
+  const parentParts = parts.slice(0, -1);
+  const prefix = normalized.startsWith(separator) ? separator : "";
+  return prefix + parentParts.join(separator);
+};
+
+const parentLeft = computed(() => parentPath(props.leftRoot));
+const parentRight = computed(() => parentPath(props.rightRoot));
+const canNavigateParent = computed(() => {
+  const normalizedLeft = normalizePath(props.leftRoot);
+  const normalizedRight = normalizePath(props.rightRoot);
+  const normalizedBaseLeft = normalizePath(props.baseLeft);
+  const normalizedBaseRight = normalizePath(props.baseRight);
+  if (!parentLeft.value || !parentRight.value) {
+    return false;
+  }
+  return normalizedLeft !== normalizedBaseLeft || normalizedRight !== normalizedBaseRight;
+});
+
+const onParentNavigate = () => {
+  if (canNavigateParent.value) {
+    emit("navigate", parentLeft.value, parentRight.value);
+  }
+};
 
 const onRowActivate = (item: FolderItem) => {
   if (isNavigableFolder(item)) {
@@ -145,6 +189,23 @@ const onRowActivate = (item: FolderItem) => {
       <div class="folder-row folder-row--head">
         <span>Name</span>
         <span>Status</span>
+      </div>
+      <div
+        v-if="canNavigateParent"
+        class="folder-row"
+        role="button"
+        tabindex="0"
+        @dblclick="onParentNavigate"
+      >
+        <span class="folder-name">
+          <span class="folder-icon filetype--folder" aria-hidden="true">
+            <svg viewBox="0 0 20 20">
+              <path d="M2 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z" />
+            </svg>
+          </span>
+          ..
+        </span>
+        <span></span>
       </div>
       <div v-if="props.items.length === 0" class="folder-row">
         <span>No folder comparison loaded.</span>
