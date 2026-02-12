@@ -89,7 +89,7 @@ class MainWindow(QMainWindow):
             pass
 
     def _create_menu(self):
-        menubar = QMenuBar(self)
+        menubar = self.menuBar()
         file_menu = menubar.addMenu("File")
         open_files_action = QAction("Open Files", self)
         open_folders_action = QAction("Open Folders", self)
@@ -188,6 +188,12 @@ class MainWindow(QMainWindow):
         # go_to_line_action.triggered.connect(self._open_go_to_line)
         # edit_menu.addAction(go_to_line_action)
 
+        # Help menu
+        help_menu = menubar.addMenu("Help")
+        about_action = QAction("About SmartMerge", self)
+        about_action.triggered.connect(self._show_about)
+        help_menu.addAction(about_action)
+
         # Options menu
         options_menu = menubar.addMenu("Options")
 
@@ -241,8 +247,6 @@ class MainWindow(QMainWindow):
 
         engine_menu.addAction(self.myers_action)
         engine_menu.addAction(self.smart_action)
-
-        self.setMenuBar(menubar)
 
     def open_font_dialog(self):
         if self.stacked_widget.currentIndex() == 0:  # File comparison
@@ -553,6 +557,37 @@ class MainWindow(QMainWindow):
             return True
         else:  # Cancel
             return False
+
+    def _show_about(self):
+        """Show the About dialog."""
+        about_text = """
+        <h2>SmartMerge</h2>
+        <p><b>A powerful file and folder comparison tool</b></p>
+        <p>SmartMerge provides intelligent side-by-side comparison of files and folders 
+        with advanced diff algorithms and an intuitive user interface.</p>
+        <p><b>Features:</b></p>
+        <ul>
+            <li>File and folder comparison</li>
+            <li>Multiple diff algorithms (Myers and Smart Block Diff)</li>
+            <li>Light and Dark theme support</li>
+            <li>Advanced search and navigation</li>
+            <li>Undo/Redo support</li>
+            <li>Syntax highlighting and line numbers</li>
+            <li>Save and export capabilities</li>
+        </ul>
+        <p><b>Keyboard Shortcuts:</b></p>
+        <ul>
+            <li><code>Cmd+O</code> - Open Files</li>
+            <li><code>Cmd+Shift+O</code> - Open Folders</li>
+            <li><code>Alt+Down/Up</code> - Navigate changes</li>
+            <li><code>Cmd+F</code> - Find</li>
+            <li><code>Cmd+S</code> - Save</li>
+        </ul>
+        <p style="margin-top: 20px; font-size: 11px; color: gray;">
+        SmartMerge - Making code review easier
+        </p>
+        """
+        QMessageBox.about(self, "About SmartMerge", about_text)
 
     def closeEvent(self, event):
         # Save window geometry
