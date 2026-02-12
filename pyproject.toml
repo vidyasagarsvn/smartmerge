@@ -26,7 +26,6 @@ dev = [
 
 [project.scripts]
 smartmerge = "smartmerge.main:main"
-lint = "smartmerge.tools.lint:main"
 
 [tool.setuptools]
 packages = ["smartmerge"]
