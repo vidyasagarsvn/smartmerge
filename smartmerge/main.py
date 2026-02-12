@@ -223,7 +223,9 @@ class MainWindow(QMainWindow):
         prev_change_action.triggered.connect(self._previous_change)
         navigate_menu.addAction(next_change_action)
         navigate_menu.addAction(prev_change_action)
-        navigate_menu.addSeparator()
+
+        # Merge menu
+        merge_menu = menubar.addMenu("Merge")
         copy_to_right_action = QAction("Copy to Right", self)
         copy_to_right_action.setShortcut(
             _get_platform_shortcut("Alt+Right", "Alt+Right")
@@ -232,9 +234,9 @@ class MainWindow(QMainWindow):
         copy_to_left_action = QAction("Copy to Left", self)
         copy_to_left_action.setShortcut(_get_platform_shortcut("Alt+Left", "Alt+Left"))
         copy_to_left_action.triggered.connect(self._copy_to_left)
-        navigate_menu.addAction(copy_to_right_action)
-        navigate_menu.addAction(copy_to_left_action)
-        navigate_menu.addSeparator()
+        merge_menu.addAction(copy_to_right_action)
+        merge_menu.addAction(copy_to_left_action)
+        merge_menu.addSeparator()
         copy_all_to_right_action = QAction("Copy All to Right", self)
         copy_all_to_right_action.setShortcut(
             _get_platform_shortcut("Ctrl+Alt+Right", "Cmd+Alt+Right")
@@ -245,8 +247,8 @@ class MainWindow(QMainWindow):
             _get_platform_shortcut("Ctrl+Alt+Left", "Cmd+Alt+Left")
         )
         copy_all_to_left_action.triggered.connect(self._copy_all_to_left)
-        navigate_menu.addAction(copy_all_to_right_action)
-        navigate_menu.addAction(copy_all_to_left_action)
+        merge_menu.addAction(copy_all_to_right_action)
+        merge_menu.addAction(copy_all_to_left_action)
 
         # Engine submenu (under Options)
         engine_menu = options_menu.addMenu("Engine")
