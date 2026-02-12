@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watchEffect, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, watchEffect, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
@@ -52,6 +52,7 @@ const savedLeftLines = ref<string[]>([]);
 const savedRightLines = ref<string[]>([]);
 const isLeftModified = ref(false);
 const isRightModified = ref(false);
+const regionSelection = ref({ hasSelection: false, regionCount: 0, currentIndex: -1 });
 const undoStack = ref<{ left: string[]; right: string[] }[]>([]);
 const redoStack = ref<{ left: string[]; right: string[] }[]>([]);
 const navigationStack = ref<{ left: string; right: string }[]>([]);
@@ -72,8 +73,8 @@ const canSave = computed(
 );
 const canSaveAll = computed(() => canSave.value);
 const canNavigate = computed(() => viewMode.value === "file" && hasChangeRegions.value);
-const canCopy = computed(() => viewMode.value === "file" && hasChangeRegions.value);
-const canCopyAll = computed(() => viewMode.value === "file" && hasDiff.value);
+const canCopy = computed(() => viewMode.value === "file" && regionSelection.value.hasSelection);
+const canCopyAll = computed(() => viewMode.value === "file" && hasChangeRegions.value);
 const canBack = computed(() =>
   (viewMode.value === "file" && viewingFromFolder.value) ||
     (viewMode.value === "file" && folderItems.value.length > 0) ||
@@ -83,6 +84,8 @@ const showAbout = ref(false);
 const showFontPicker = ref(false);
 const codeFont = ref("IBM Plex Mono");
 const codeFontSize = ref(14);
+const draftCodeFont = ref(codeFont.value);
+const draftCodeFontSize = ref(codeFontSize.value);
 const fontOptions = [
   "Consolas",
   "Cascadia Code",
@@ -101,16 +104,18 @@ const fontSizeOptions = [11, 12, 13, 14, 15, 16, 18, 20];
 const updateMenuState = async () => {
   try {
     await invoke("set_menu_state", {
-      canBack: canBack.value,
-      canSave: canSave.value,
-      canSaveAll: canSaveAll.value,
-      canUndo: canUndo.value,
-      canRedo: canRedo.value,
-      canNavigate: canNavigate.value,
-      canCopy: canCopy.value,
-      canCopyAll: canCopyAll.value,
+      payload: {
+        canBack: canBack.value,
+        canSave: canSave.value,
+        canSaveAll: canSaveAll.value,
+        canUndo: canUndo.value,
+        canRedo: canRedo.value,
+        canNavigate: canNavigate.value,
+        canCopy: canCopy.value,
+        canCopyAll: canCopyAll.value,
+      },
     });
-  } catch {
+  } catch (error) {
     // Menu might not be ready yet.
   }
 };
@@ -134,9 +139,13 @@ watchEffect(() => {
   localStorage.setItem("smartmerge.engine", diffEngine.value);
 });
 
-watchEffect(() => {
-  void updateMenuState();
-});
+watch(
+  [canBack, canSave, canSaveAll, canUndo, canRedo, canNavigate, canCopy, canCopyAll],
+  () => {
+    void updateMenuState();
+  },
+  { immediate: true }
+);
 
 const updateModifiedFlags = () => {
   isLeftModified.value =
@@ -147,8 +156,36 @@ const updateModifiedFlags = () => {
     rightLines.value.join("") !== savedRightLines.value.join("");
 };
 
+const findFirstMismatch = (left: string[], right: string[]) => {
+  const maxLen = Math.max(left.length, right.length);
+  for (let i = 0; i < maxLen; i += 1) {
+    if (left[i] !== right[i]) {
+      return { index: i, left: left[i] ?? null, right: right[i] ?? null };
+    }
+  }
+  return null;
+};
+
 const refreshDiffFromLines = async () => {
   try {
+    const mismatch = findFirstMismatch(leftLines.value, rightLines.value);
+    if (!mismatch) {
+      diffResult.value = {
+        left_lines: [...leftLines.value],
+        right_lines: [...rightLines.value],
+        opcodes: [
+          {
+            tag: "equal",
+            i1: 0,
+            i2: leftLines.value.length,
+            j1: 0,
+            j2: rightLines.value.length,
+          },
+        ],
+      };
+      updateModifiedFlags();
+      return;
+    }
     const opcodes = await invoke<Opcode[]>("compare_lines", {
       leftLines: leftLines.value,
       rightLines: rightLines.value,
@@ -346,7 +383,7 @@ const handleCopyAllToLeft = async () => {
   await refreshDiffFromLines();
 };
 
-const getRegionRanges = () => {
+const getRegionSelection = () => {
   const regionState = fileCompareRef.value?.getRegionState();
   if (!regionState || regionState.currentIndex < 0) {
     return null;
@@ -355,40 +392,28 @@ const getRegionRanges = () => {
   if (!region) {
     return null;
   }
-  const leftIndices: number[] = [];
-  const rightIndices: number[] = [];
-  for (let i = region.start; i <= region.end; i += 1) {
-    const leftIdx = regionState.leftMap[i];
-    const rightIdx = regionState.rightMap[i];
-    if (leftIdx !== undefined && leftIdx >= 0) {
-      leftIndices.push(leftIdx);
-    }
-    if (rightIdx !== undefined && rightIdx >= 0) {
-      rightIndices.push(rightIdx);
-    }
+  const fileRanges = regionState.regionFileRanges?.[regionState.currentIndex];
+  if (!fileRanges) {
+    return null;
   }
-  const leftRange = leftIndices.length
-    ? { start: Math.min(...leftIndices), end: Math.max(...leftIndices) }
-    : null;
-  const rightRange = rightIndices.length
-    ? { start: Math.min(...rightIndices), end: Math.max(...rightIndices) }
-    : null;
-  return { region, leftRange, rightRange, regionState };
+  return { region, fileRanges, regionState };
 };
 
 const handleCopyToRight = async () => {
   if (!diffResult.value) {
     return;
   }
-  const rangeInfo = getRegionRanges();
-  if (!rangeInfo) {
+  const selection = getRegionSelection();
+  if (!selection) {
     statusText.value = "No change region selected.";
     return;
   }
   pushUndo();
-  const { leftRange, rightRange, regionState, region } = rangeInfo;
-  if (leftRange) {
-    if (rightRange) {
+  const { fileRanges, regionState, region } = selection;
+  const leftRange = fileRanges.left;
+  const rightRange = fileRanges.right;
+  if (leftRange.start >= 0 && leftRange.end >= 0) {
+    if (rightRange.start >= 0 && rightRange.end >= 0) {
       rightLines.value.splice(
         rightRange.start,
         rightRange.end - rightRange.start + 1,
@@ -406,7 +431,7 @@ const handleCopyToRight = async () => {
         ...leftLines.value.slice(leftRange.start, leftRange.end + 1)
       );
     }
-  } else if (rightRange) {
+  } else if (rightRange.start >= 0 && rightRange.end >= 0) {
     rightLines.value.splice(rightRange.start, rightRange.end - rightRange.start + 1);
   }
   isRightModified.value = true;
@@ -417,15 +442,17 @@ const handleCopyToLeft = async () => {
   if (!diffResult.value) {
     return;
   }
-  const rangeInfo = getRegionRanges();
-  if (!rangeInfo) {
+  const selection = getRegionSelection();
+  if (!selection) {
     statusText.value = "No change region selected.";
     return;
   }
   pushUndo();
-  const { leftRange, rightRange, regionState, region } = rangeInfo;
-  if (rightRange) {
-    if (leftRange) {
+  const { fileRanges, regionState, region } = selection;
+  const leftRange = fileRanges.left;
+  const rightRange = fileRanges.right;
+  if (rightRange.start >= 0 && rightRange.end >= 0) {
+    if (leftRange.start >= 0 && leftRange.end >= 0) {
       leftLines.value.splice(
         leftRange.start,
         leftRange.end - leftRange.start + 1,
@@ -443,7 +470,7 @@ const handleCopyToLeft = async () => {
         ...rightLines.value.slice(rightRange.start, rightRange.end + 1)
       );
     }
-  } else if (leftRange) {
+  } else if (leftRange.start >= 0 && leftRange.end >= 0) {
     leftLines.value.splice(leftRange.start, leftRange.end - leftRange.start + 1);
   }
   isLeftModified.value = true;
@@ -497,6 +524,33 @@ const handleNextChange = () => {
 const handlePrevChange = () => {
   fileCompareRef.value?.prevChange();
 };
+
+const openFontPicker = () => {
+  draftCodeFont.value = codeFont.value;
+  draftCodeFontSize.value = codeFontSize.value;
+  showFontPicker.value = true;
+};
+
+const closeFontPicker = () => {
+  draftCodeFont.value = codeFont.value;
+  draftCodeFontSize.value = codeFontSize.value;
+  showFontPicker.value = false;
+};
+
+const applyFontSettings = () => {
+  codeFont.value = draftCodeFont.value;
+  codeFontSize.value = draftCodeFontSize.value;
+  showFontPicker.value = false;
+};
+
+const handleRegionChange = (payload: {
+  hasSelection: boolean;
+  regionCount: number;
+  currentIndex: number;
+}) => {
+  regionSelection.value = payload;
+};
+
 
 const handleBack = async () => {
   if (viewMode.value === "file" && (isLeftModified.value || isRightModified.value)) {
@@ -690,7 +744,7 @@ function handleToolbarAction(action: string) {
       showAbout.value = true;
       break;
     case "font-picker":
-      showFontPicker.value = true;
+      openFontPicker();
       break;
     default:
       statusText.value = `Action: ${action}`;
@@ -723,6 +777,7 @@ function handleToolbarAction(action: string) {
         :right-label="rightPath ?? ''"
         :diff-result="diffResult"
         :engine="diffEngine"
+        @region-change="handleRegionChange"
       />
       <FolderCompareView
         v-else
@@ -752,13 +807,13 @@ function handleToolbarAction(action: string) {
       <div class="modal">
         <div class="modal__header">
           <span>Code Font</span>
-          <button class="modal__close" type="button" @click="showFontPicker = false">
+          <button class="modal__close" type="button" @click="closeFontPicker">
             Close
           </button>
         </div>
         <label class="modal__label">
           Font family
-          <select v-model="codeFont" class="modal__select">
+          <select v-model="draftCodeFont" class="modal__select">
             <option v-for="font in fontOptions" :key="font" :value="font">
               {{ font }}
             </option>
@@ -767,7 +822,7 @@ function handleToolbarAction(action: string) {
         <label class="modal__label">
           Custom font
           <input
-            v-model="codeFont"
+            v-model="draftCodeFont"
             class="modal__input"
             type="text"
             placeholder="Type a font family"
@@ -775,18 +830,21 @@ function handleToolbarAction(action: string) {
         </label>
         <label class="modal__label">
           Font size
-          <select v-model.number="codeFontSize" class="modal__select">
+          <select v-model.number="draftCodeFontSize" class="modal__select">
             <option v-for="size in fontSizeOptions" :key="size" :value="size">
               {{ size }} px
             </option>
           </select>
         </label>
-        <div class="modal__preview" :style="{ fontFamily: codeFont, fontSize: `${codeFontSize}px` }">
+        <div
+          class="modal__preview"
+          :style="{ fontFamily: draftCodeFont, fontSize: `${draftCodeFontSize}px` }"
+        >
           AaBbCc 0123456789
           <br />
           const hello = "SmartMerge";
         </div>
-        <button class="tool-btn modal__action" type="button" @click="showFontPicker = false">
+        <button class="tool-btn modal__action" type="button" @click="applyFontSettings">
           OK
         </button>
       </div>

@@ -46,7 +46,7 @@ pub fn smart_diff(left: &[String], right: &[String]) -> Vec<Opcode> {
         opcodes.push(Opcode::new("insert", i, i, j, right.len()));
     }
 
-    opcodes
+    normalize_smart_opcodes(&opcodes)
 }
 
 fn find_next_match(lines: &[String], target: &str, start: usize) -> Option<usize> {
@@ -56,4 +56,58 @@ fn find_next_match(lines: &[String], target: &str, start: usize) -> Option<usize
         }
     }
     None
+}
+
+fn normalize_smart_opcodes(opcodes: &[Opcode]) -> Vec<Opcode> {
+    if opcodes.is_empty() {
+        return Vec::new();
+    }
+
+    let mut normalized: Vec<Opcode> = Vec::new();
+    let mut idx = 0;
+    while idx < opcodes.len() {
+        if idx + 2 < opcodes.len() {
+            let first = &opcodes[idx];
+            let middle = &opcodes[idx + 1];
+            let last = &opcodes[idx + 2];
+
+            let middle_len = middle.i2.saturating_sub(middle.i1).max(middle.j2.saturating_sub(middle.j1));
+
+            if middle.tag == "equal"
+                && middle_len <= 2
+                && first.i2 == middle.i1
+                && middle.i2 == last.i1
+                && first.j2 == middle.j1
+                && middle.j2 == last.j1
+            {
+                if first.tag == "delete" && last.tag == "insert" {
+                    normalized.push(Opcode::new(
+                        "replace",
+                        first.i1,
+                        middle.i2,
+                        first.j1,
+                        last.j2,
+                    ));
+                    idx += 3;
+                    continue;
+                }
+                if first.tag == "insert" && last.tag == "delete" {
+                    normalized.push(Opcode::new(
+                        "replace",
+                        first.i1,
+                        last.i2,
+                        first.j1,
+                        middle.j2,
+                    ));
+                    idx += 3;
+                    continue;
+                }
+            }
+        }
+
+        normalized.push(opcodes[idx].clone());
+        idx += 1;
+    }
+
+    normalized
 }
