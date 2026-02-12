@@ -351,13 +351,10 @@ class FileCompareWidget(QWidget):
         self._region_file_ranges = self._build_region_file_ranges(self._change_regions)
         self._current_region_lines = None
 
-        # Preserve current region index - clamp to valid range
+        # Reset navigation state for new comparison
         if self._change_regions:
-            # Keep index in valid range [0, len-1]
-            if self._current_region_index < 0:
-                self._current_region_index = 0
-            elif self._current_region_index >= len(self._change_regions):
-                self._current_region_index = len(self._change_regions) - 1
+            # Reset to -1 so first next_change() call will navigate to region 0
+            self._current_region_index = -1
         else:
             # No regions exist - clear selections and reset index
             self.left_text.setExtraSelections([])
@@ -596,12 +593,16 @@ class FileCompareWidget(QWidget):
         """Navigate to the next change region."""
         if not self._change_regions:
             return
+        # Initialize to first region if starting (-1)
+        if self._current_region_index == -1:
+            self._current_region_index = 0
         # Move to next region if not at the end
-        if self._current_region_index < len(self._change_regions) - 1:
+        elif self._current_region_index < len(self._change_regions) - 1:
             self._current_region_index += 1
-            start_line, end_line = self._change_regions[self._current_region_index]
-            self._scroll_to_line(start_line)
-            self._set_change_selection(start_line, end_line)
+
+        start_line, end_line = self._change_regions[self._current_region_index]
+        self._scroll_to_line(start_line)
+        self._set_change_selection(start_line, end_line)
 
     def previous_change(self) -> None:
         """Navigate to the previous change region."""

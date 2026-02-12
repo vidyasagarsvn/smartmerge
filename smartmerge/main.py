@@ -72,6 +72,11 @@ class MainWindow(QMainWindow):
         self.last_left_path = self.settings.value("last_left_path", "", type=str)
         self.last_right_path = self.settings.value("last_right_path", "", type=str)
 
+        # Restore window geometry if saved
+        geometry = self.settings.value("window_geometry", None)
+        if geometry:
+            self.restoreGeometry(geometry)
+
         # Apply default light theme
         self._apply_light_theme()
 
@@ -550,6 +555,8 @@ class MainWindow(QMainWindow):
             return False
 
     def closeEvent(self, event):
+        # Save window geometry
+        self.settings.setValue("window_geometry", self.saveGeometry())
         """Handle window close event."""
         if self._has_unsaved_changes():
             if not self._show_unsaved_changes_dialog("Quit"):

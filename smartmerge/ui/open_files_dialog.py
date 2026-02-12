@@ -40,6 +40,8 @@ class OpenFilesDialog(QDialog):
         self.left_edit.setReadOnly(True)
         self.left_edit.setMinimumHeight(32)
         self.left_edit.setPlaceholderText("No file selected")
+        if self.left_path:
+            self.left_edit.setText(self.left_path)
         left_browse_btn = QPushButton("Browse...")
         left_browse_btn.setFixedWidth(100)
         left_browse_btn.setMinimumHeight(32)
@@ -58,6 +60,8 @@ class OpenFilesDialog(QDialog):
         self.right_edit.setReadOnly(True)
         self.right_edit.setMinimumHeight(32)
         self.right_edit.setPlaceholderText("No file selected")
+        if self.right_path:
+            self.right_edit.setText(self.right_path)
         right_browse_btn = QPushButton("Browse...")
         right_browse_btn.setFixedWidth(100)
         right_browse_btn.setMinimumHeight(32)
@@ -101,6 +105,13 @@ class OpenFilesDialog(QDialog):
         main_layout.addLayout(btn_row)
 
         self.setLayout(main_layout)
+
+        # Update status labels and button state based on initial paths
+        if self.left_path:
+            self._update_left_status()
+        if self.right_path:
+            self._update_right_status()
+        self._update_button_state()
 
     def _apply_theme(self):
         """Apply the selected theme to the dialog."""
@@ -160,7 +171,7 @@ class OpenFilesDialog(QDialog):
         """Update the left file status indicator."""
         if not self.left_path:
             self.left_status_label.setText("ⓘ Select a file to compare")
-            self.left_status_label.setStyleSheet("color: #666; font-size: 10px;")
+            self.left_status_label.setStyleSheet("color: #666; font-size: 11px;")
             return
 
         path = Path(self.left_path)
@@ -169,19 +180,19 @@ class OpenFilesDialog(QDialog):
             size_str = self._format_file_size(size)
             self.left_status_label.setText(f"✓ File exists • {size_str}")
             self.left_status_label.setStyleSheet(
-                "color: #4CAF50; font-size: 10px; font-weight: bold;"
+                "color: #4CAF50; font-size: 11px; font-weight: bold;"
             )
         else:
             self.left_status_label.setText("✗ File not found")
             self.left_status_label.setStyleSheet(
-                "color: #f44336; font-size: 10px; font-weight: bold;"
+                "color: #f44336; font-size: 11px; font-weight: bold;"
             )
 
     def _update_right_status(self) -> None:
         """Update the right file status indicator."""
         if not self.right_path:
             self.right_status_label.setText("ⓘ Select a file to compare")
-            self.right_status_label.setStyleSheet("color: #666; font-size: 10px;")
+            self.right_status_label.setStyleSheet("color: #666; font-size: 11px;")
             return
 
         path = Path(self.right_path)
@@ -190,12 +201,12 @@ class OpenFilesDialog(QDialog):
             size_str = self._format_file_size(size)
             self.right_status_label.setText(f"✓ File exists • {size_str}")
             self.right_status_label.setStyleSheet(
-                "color: #4CAF50; font-size: 10px; font-weight: bold;"
+                "color: #4CAF50; font-size: 11px; font-weight: bold;"
             )
         else:
             self.right_status_label.setText("✗ File not found")
             self.right_status_label.setStyleSheet(
-                "color: #f44336; font-size: 10px; font-weight: bold;"
+                "color: #f44336; font-size: 11px; font-weight: bold;"
             )
 
     def _format_file_size(self, size: int) -> str:
