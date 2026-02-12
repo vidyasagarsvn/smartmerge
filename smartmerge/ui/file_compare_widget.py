@@ -167,9 +167,9 @@ class FileCompareWidget(QWidget):
             added_color = "#dcfce7"  # light green
             deleted_color = "#fee2e2"  # light red
         else:
-            changed_color = "#594d1f"  # dark amber
-            added_color = "#1e3a1f"  # dark green
-            deleted_color = "#3a1f1f"  # dark red
+            changed_color = "#663300"  # very dark brown/orange
+            added_color = "#1B5E20"  # very dark green
+            deleted_color = "#8B0000"  # darker red
         return changed_color, added_color, deleted_color
 
     def _update_views(self):
@@ -480,7 +480,7 @@ class FileCompareWidget(QWidget):
                 line_num_format.setForeground(QColor("#6b7280"))  # Gray text
             else:
                 line_num_format.setBackground(QColor("#3d3d3d"))  # Dark gray background
-                line_num_format.setForeground(QColor("#9ca3af"))  # Light gray text
+                line_num_format.setForeground(QColor("#6A7378"))  # Muted gray text
 
             cursor.insertText(line_num_part, line_num_format)
 
@@ -549,7 +549,7 @@ class FileCompareWidget(QWidget):
         if self.current_theme == "light":
             return "#bfdbfe"  # light blue
         else:
-            return "#1e3a8a"  # dark blue
+            return "#0D1B4A"  # very dark blue
 
     def _set_change_selection(self, start_line: int, end_line: int) -> None:
         """Highlight a range of lines with the current region selection color."""
