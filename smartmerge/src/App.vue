@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watchEffect, computed, onMounted, onBeforeUnmount } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { confirm, message, open } from "@tauri-apps/plugin-dialog";
 import TopToolbar from "./components/TopToolbar.vue";
 import FileCompareView from "./components/FileCompareView.vue";
 import FolderCompareView from "./components/FolderCompareView.vue";
@@ -56,9 +57,63 @@ const redoStack = ref<{ left: string[]; right: string[] }[]>([]);
 const navigationStack = ref<{ left: string; right: string }[]>([]);
 const viewingFromFolder = ref(false);
 const fileCompareRef = ref<InstanceType<typeof FileCompareView> | null>(null);
+const folderLeftPath = ref<string | null>(null);
+const folderRightPath = ref<string | null>(null);
+let unlistenMenu: UnlistenFn | null = null;
 
 const canUndo = computed(() => undoStack.value.length > 0);
 const canRedo = computed(() => redoStack.value.length > 0);
+const hasDiff = computed(() => diffResult.value !== null);
+const hasChangeRegions = computed(() =>
+  diffResult.value ? diffResult.value.opcodes.some((opcode) => opcode.tag !== "equal") : false
+);
+const canSave = computed(
+  () => viewMode.value === "file" && (isLeftModified.value || isRightModified.value)
+);
+const canSaveAll = computed(() => canSave.value);
+const canNavigate = computed(() => viewMode.value === "file" && hasChangeRegions.value);
+const canCopy = computed(() => viewMode.value === "file" && hasChangeRegions.value);
+const canCopyAll = computed(() => viewMode.value === "file" && hasDiff.value);
+const canBack = computed(() =>
+  (viewMode.value === "file" && viewingFromFolder.value) ||
+    (viewMode.value === "file" && folderItems.value.length > 0) ||
+    (viewMode.value === "folder" && navigationStack.value.length > 0)
+);
+const showAbout = ref(false);
+const showFontPicker = ref(false);
+const codeFont = ref("IBM Plex Mono");
+const codeFontSize = ref(14);
+const fontOptions = [
+  "Consolas",
+  "Cascadia Code",
+  "Courier New",
+  "Fira Code",
+  "IBM Plex Mono",
+  "JetBrains Mono",
+  "Menlo",
+  "Monaco",
+  "SFMono-Regular",
+  "Source Code Pro",
+  "Ubuntu Mono",
+];
+const fontSizeOptions = [11, 12, 13, 14, 15, 16, 18, 20];
+
+const updateMenuState = async () => {
+  try {
+    await invoke("set_menu_state", {
+      canBack: canBack.value,
+      canSave: canSave.value,
+      canSaveAll: canSaveAll.value,
+      canUndo: canUndo.value,
+      canRedo: canRedo.value,
+      canNavigate: canNavigate.value,
+      canCopy: canCopy.value,
+      canCopyAll: canCopyAll.value,
+    });
+  } catch {
+    // Menu might not be ready yet.
+  }
+};
 
 watchEffect(() => {
   document.documentElement.dataset.theme = theme.value;
@@ -66,7 +121,21 @@ watchEffect(() => {
 });
 
 watchEffect(() => {
+  document.documentElement.style.setProperty("--code-font", codeFont.value);
+  localStorage.setItem("smartmerge.codeFont", codeFont.value);
+});
+
+watchEffect(() => {
+  document.documentElement.style.setProperty("--code-font-size", `${codeFontSize.value}px`);
+  localStorage.setItem("smartmerge.codeFontSize", String(codeFontSize.value));
+});
+
+watchEffect(() => {
   localStorage.setItem("smartmerge.engine", diffEngine.value);
+});
+
+watchEffect(() => {
+  void updateMenuState();
 });
 
 const updateModifiedFlags = () => {
@@ -185,6 +254,7 @@ async function loadFileDiff() {
     viewMode.value = "file";
     viewingFromFolder.value = false;
     statusText.value = `Comparing ${leftPath.value} and ${rightPath.value}`;
+    await updateMenuState();
   } catch (error) {
     statusText.value = `Failed to compare files: ${String(error)}`;
   }
@@ -223,7 +293,10 @@ async function loadFolderCompare() {
       rightPath: rightPath.value,
     });
     viewMode.value = "folder";
+    folderLeftPath.value = leftPath.value;
+    folderRightPath.value = rightPath.value;
     statusText.value = `Comparing folders ${leftPath.value} and ${rightPath.value}`;
+    await updateMenuState();
   } catch (error) {
     statusText.value = `Failed to compare folders: ${String(error)}`;
   }
@@ -239,7 +312,7 @@ const handleFolderNavigate = async (left: string, right: string) => {
 };
 
 const handleFolderFileOpen = async (left: string, right: string) => {
-  leftPath.value = left;
+    await updateMenuState();
   rightPath.value = right;
   viewingFromFolder.value = true;
   await loadFileDiff();
@@ -425,10 +498,40 @@ const handlePrevChange = () => {
 };
 
 const handleBack = async () => {
+  if (viewMode.value === "file" && (isLeftModified.value || isRightModified.value)) {
+    const shouldDiscard = await confirm(
+      "You have unsaved changes. Close the comparison view and discard them?",
+      {
+        title: "Unsaved changes",
+        kind: "warning",
+        okLabel: "Discard",
+        cancelLabel: "Cancel",
+      }
+    );
+    if (!shouldDiscard) {
+      return;
+    }
+  }
   if (viewMode.value === "file" && viewingFromFolder.value) {
+    const restoredLeft = folderLeftPath.value;
+    const restoredRight = folderRightPath.value;
+    viewingFromFolder.value = false;
+    if (restoredLeft && restoredRight) {
+      leftPath.value = restoredLeft;
+      rightPath.value = restoredRight;
+      await loadFolderCompare();
+    } else {
+      viewMode.value = "folder";
+      statusText.value = "Back to folder view.";
+    }
+    await updateMenuState();
+    return;
+  }
+  if (viewMode.value === "file" && folderItems.value.length > 0) {
     viewMode.value = "folder";
     viewingFromFolder.value = false;
     statusText.value = "Back to folder view.";
+    await updateMenuState();
     return;
   }
   if (viewMode.value === "folder" && navigationStack.value.length > 0) {
@@ -438,7 +541,13 @@ const handleBack = async () => {
       rightPath.value = previous.right;
       await loadFolderCompare();
     }
+    await updateMenuState();
+    return;
   }
+  if (viewMode.value === "file") {
+    statusText.value = "No folder comparison to return to.";
+  }
+  await updateMenuState();
 };
 
 const onKeydown = (event: KeyboardEvent) => {
@@ -485,9 +594,13 @@ const onKeydown = (event: KeyboardEvent) => {
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
+  const platform = navigator.platform.toLowerCase();
+  document.documentElement.dataset.os = platform.includes("win") ? "windows" : "other";
   const storedTheme = localStorage.getItem("smartmerge.theme");
   const storedEngine = localStorage.getItem("smartmerge.engine");
+  const storedCodeFont = localStorage.getItem("smartmerge.codeFont");
+  const storedCodeFontSize = localStorage.getItem("smartmerge.codeFontSize");
   const storedLeft = localStorage.getItem("smartmerge.lastLeftPath");
   const storedRight = localStorage.getItem("smartmerge.lastRightPath");
 
@@ -497,18 +610,28 @@ onMounted(() => {
   if (storedEngine === "smart" || storedEngine === "myers") {
     diffEngine.value = storedEngine;
   }
-  if (storedLeft) {
-    leftPath.value = storedLeft;
+  if (storedCodeFont) {
+    codeFont.value = storedCodeFont;
   }
-  if (storedRight) {
-    rightPath.value = storedRight;
+  if (storedCodeFontSize) {
+    const parsed = Number.parseInt(storedCodeFontSize, 10);
+    if (!Number.isNaN(parsed)) {
+      codeFontSize.value = parsed;
+    }
   }
 
   window.addEventListener("keydown", onKeydown);
+  unlistenMenu = await listen<string>("menu-action", (event) => {
+    handleToolbarAction(event.payload);
+  });
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeydown);
+  if (unlistenMenu) {
+    unlistenMenu();
+    unlistenMenu = null;
+  }
 });
 
 function handleToolbarAction(action: string) {
@@ -560,6 +683,12 @@ function handleToolbarAction(action: string) {
     case "copy-all-right":
       handleCopyAllToRight();
       break;
+    case "about":
+      showAbout.value = true;
+      break;
+    case "font-picker":
+      showFontPicker.value = true;
+      break;
     default:
       statusText.value = `Action: ${action}`;
   }
@@ -574,6 +703,12 @@ function handleToolbarAction(action: string) {
       :engine="diffEngine"
       :can-undo="canUndo"
       :can-redo="canRedo"
+      :can-back="canBack"
+      :can-save="canSave"
+      :can-save-all="canSaveAll"
+      :can-navigate="canNavigate"
+      :can-copy="canCopy"
+      :can-copy-all="canCopyAll"
       @action="handleToolbarAction"
     />
 
@@ -581,8 +716,8 @@ function handleToolbarAction(action: string) {
       <FileCompareView
         v-if="viewMode === 'file'"
         ref="fileCompareRef"
-        :left-label="leftPath ?? 'Left file'"
-        :right-label="rightPath ?? 'Right file'"
+        :left-label="leftPath ?? ''"
+        :right-label="rightPath ?? ''"
         :diff-result="diffResult"
         :engine="diffEngine"
       />
@@ -595,5 +730,63 @@ function handleToolbarAction(action: string) {
     </main>
 
     <StatusBar :message="statusText" />
+
+    <div v-if="showAbout" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div class="modal__header">
+          <span>About SmartMerge</span>
+          <button class="modal__close" type="button" @click="showAbout = false">Close</button>
+        </div>
+        <p>
+          SmartMerge compares files and folders with merge tooling. It supports
+          Myers and Smart diff engines, folder navigation, and merge actions.
+        </p>
+        <button class="tool-btn modal__action" type="button" @click="showAbout = false">OK</button>
+      </div>
+    </div>
+
+    <div v-if="showFontPicker" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div class="modal__header">
+          <span>Code Font</span>
+          <button class="modal__close" type="button" @click="showFontPicker = false">
+            Close
+          </button>
+        </div>
+        <label class="modal__label">
+          Font family
+          <select v-model="codeFont" class="modal__select">
+            <option v-for="font in fontOptions" :key="font" :value="font">
+              {{ font }}
+            </option>
+          </select>
+        </label>
+        <label class="modal__label">
+          Custom font
+          <input
+            v-model="codeFont"
+            class="modal__input"
+            type="text"
+            placeholder="Type a font family"
+          />
+        </label>
+        <label class="modal__label">
+          Font size
+          <select v-model.number="codeFontSize" class="modal__select">
+            <option v-for="size in fontSizeOptions" :key="size" :value="size">
+              {{ size }} px
+            </option>
+          </select>
+        </label>
+        <div class="modal__preview" :style="{ fontFamily: codeFont, fontSize: `${codeFontSize}px` }">
+          AaBbCc 0123456789
+          <br />
+          const hello = "SmartMerge";
+        </div>
+        <button class="tool-btn modal__action" type="button" @click="showFontPicker = false">
+          OK
+        </button>
+      </div>
+    </div>
   </div>
 </template>

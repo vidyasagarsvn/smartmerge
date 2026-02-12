@@ -172,7 +172,13 @@ defineExpose({ nextChange, prevChange, getRegionState });
   <section class="compare-grid">
     <div class="compare-pane">
       <header class="pane-header">
-        <span>{{ props.leftLabel }}</span>
+        <input
+          class="pane-label"
+          type="text"
+          :value="props.leftLabel"
+          readonly
+          aria-label="Left file path"
+        />
       </header>
       <div class="pane-body">
         <div v-if="!props.diffResult" class="empty-state">
@@ -201,7 +207,13 @@ defineExpose({ nextChange, prevChange, getRegionState });
 
     <div class="compare-pane">
       <header class="pane-header">
-        <span>{{ props.rightLabel }}</span>
+        <input
+          class="pane-label"
+          type="text"
+          :value="props.rightLabel"
+          readonly
+          aria-label="Right file path"
+        />
       </header>
       <div class="pane-body">
         <div v-if="!props.diffResult" class="empty-state">
