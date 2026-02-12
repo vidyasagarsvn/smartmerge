@@ -1,35 +1,43 @@
+[build-system]
+requires = ["setuptools>=70", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "smartmerge"
 version = "0.1.0"
 description = "A cross-platform file and folder diff/merge tool with visual highlighting."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
   { name = "Your Name" }
 ]
 license = { text = "GPL-3.0-or-later" }
 
 dependencies = [
-  "pyside6",
-  "python-Levenshtein",
+  "pyside6>=6.5.0",
+  "python-Levenshtein>=0.21.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "ruff",
-  "pytest",
+  "ruff>=0.1.0",
+  "pytest>=7.4.0",
 ]
 
 [project.scripts]
 smartmerge = "smartmerge.main:main"
 lint = "smartmerge.tools.lint:main"
 
-[build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
+[tool.setuptools]
+packages = ["smartmerge"]
+
+[tool.setuptools.package-data]
+smartmerge = ["resources/*.svg"]
 
 [tool.uv]
 package = true
+managed = true
 
-[tool.setuptools.package-data]
-"smartmerge" = ["resources/*.svg"]
+[tool.ruff]
+line-length = 100
+target-version = "py310"
