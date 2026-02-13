@@ -1,6 +1,37 @@
 use crate::models::Opcode;
+use super::algorithm::DiffAlgorithm;
 
-pub fn smart_diff(left: &[String], right: &[String]) -> Vec<Opcode> {
+/// Smart diff algorithm implementation
+/// A greedy algorithm that looks for next matches and prefers shorter distances
+pub struct SmartAlgorithm;
+
+impl SmartAlgorithm {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SmartAlgorithm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DiffAlgorithm for SmartAlgorithm {
+    fn compute_diff(&self, left: &[String], right: &[String]) -> Vec<Opcode> {
+        smart_diff(left, right)
+    }
+    
+    fn name(&self) -> &str {
+        "Smart"
+    }
+    
+    fn description(&self) -> &str {
+        "Smart greedy diff algorithm - fast with good heuristics for similar files"
+    }
+}
+
+fn smart_diff(left: &[String], right: &[String]) -> Vec<Opcode> {
     let mut opcodes = Vec::new();
     let mut i = 0usize;
     let mut j = 0usize;

@@ -194,6 +194,31 @@ body {
   color: #1a1108;
 }
 
+.tool-select {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: none;
+  background: #f3ede3;
+  color: #2b2622;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.tool-select:hover {
+  background: #e8dccf;
+}
+
+[data-theme="dark"] .tool-select {
+  background: #2b2522;
+  color: #f4f1ec;
+}
+
+[data-theme="dark"] .tool-select:hover {
+  background: #3a312c;
+}
+
 .content-area {
   flex: 1;
   display: flex;
@@ -686,5 +711,138 @@ body {
 
   .toolbar__group--end {
     margin-left: 0;
+  }
+}
+
+/* Empty state styling */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 400px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  border: 2px dashed rgba(0, 0, 0, 0.1);
+}
+
+.empty-state-content {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+.empty-state-content h2 {
+  margin: 0 0 12px 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.empty-state-content p {
+  margin: 8px 0;
+  font-size: 1rem;
+}
+
+[data-theme="dark"] .empty-state {
+  background: rgba(50, 40, 38, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .empty-state-content {
+  color: #aaa;
+}
+
+[data-theme="dark"] .empty-state-content h2 {
+  color: #eee;
+}
+
+/* Ghost lines for WinMerge-style alignment */
+.line-ghost {
+  background-color: rgba(200, 200, 200, 0.1) !important;
+  min-height: 24px;
+  opacity: 0.4;
+}
+
+.line-ghost .line-number-ghost {
+  color: rgba(128, 128, 128, 0.3);
+  font-weight: 300;
+}
+
+[data-theme="dark"] .line-ghost {
+  background-color: rgba(80, 80, 80, 0.1) !important;
+}
+
+[data-theme="dark"] .line-ghost .line-number-ghost {
+  color: rgba(180, 180, 180, 0.2);
+}
+
+/* Current diff region highlighting (WinMerge-style) */
+.current-diff {
+  outline: 2px solid #4a9eff !important;
+  outline-offset: -2px;
+  animation: pulse-highlight 0.5s ease-out;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes pulse-highlight {
+  0% {
+    outline-color: #4a9eff;
+    outline-width: 4px;
+  }
+  50% {
+    outline-color: #2d7fd8;
+    outline-width: 3px;
+  }
+  100% {
+    outline-color: #4a9eff;
+    outline-width: 2px;
+  }
+}
+
+[data-theme="dark"] .current-diff {
+  outline-color: #6bb7ff !important;
+}
+
+/* Current diff region highlighting (WinMerge-style) */
+.current-diff {
+  outline: 2px solid #4a9eff;
+  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
+  animation: highlight-pulse 0.3s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    outline-color: #4a9eff;
+    outline-width: 2px;
+  }
+  50% {
+    outline-color: #6bb3ff;
+    outline-width: 3px;
+  }
+  100% {
+    outline-color: #4a9eff;
+    outline-width: 2px;
+  }
+}
+
+[data-theme="dark"] .current-diff {
+  outline-color: #5ba4ff;
+}
+
+[data-theme="dark"] @keyframes highlight-pulse {
+  0% {
+    outline-color: #5ba4ff;
+    outline-width: 2px;
+  }
+  50% {
+    outline-color: #7dbfff;
+    outline-width: 3px;
+  }
+  100% {
+    outline-color: #5ba4ff;
+    outline-width: 2px;
   }
 }

@@ -1,8 +1,38 @@
 use std::collections::HashMap;
-
 use crate::models::Opcode;
+use super::algorithm::DiffAlgorithm;
 
-pub fn myers_opcodes(left: &[String], right: &[String]) -> Vec<Opcode> {
+/// Myers diff algorithm implementation
+/// Based on "An O(ND) Difference Algorithm and Its Variations" by Eugene W. Myers
+pub struct MyersAlgorithm;
+
+impl MyersAlgorithm {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for MyersAlgorithm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DiffAlgorithm for MyersAlgorithm {
+    fn compute_diff(&self, left: &[String], right: &[String]) -> Vec<Opcode> {
+        myers_opcodes(left, right)
+    }
+    
+    fn name(&self) -> &str {
+        "Myers"
+    }
+    
+    fn description(&self) -> &str {
+        "Myers diff algorithm - optimal edit distance with linear space"
+    }
+}
+
+fn myers_opcodes(left: &[String], right: &[String]) -> Vec<Opcode> {
     let n = left.len() as i32;
     let m = right.len() as i32;
     let maxd = n + m;
@@ -151,23 +181,5 @@ fn merge_opcodes(edits: &[Opcode]) -> Vec<Opcode> {
         idx += 1;
     }
 
-    normalized
-}
-
-pub fn normalize_opcodes(opcodes: &[Opcode], left_len: usize, right_len: usize) -> Vec<Opcode> {
-    let mut normalized = Vec::new();
-    for opcode in opcodes {
-        let i1 = opcode.i1.min(left_len);
-        let i2 = opcode.i2.min(left_len);
-        let j1 = opcode.j1.min(right_len);
-        let j2 = opcode.j2.min(right_len);
-        if i2 < i1 || j2 < j1 {
-            continue;
-        }
-        if opcode.tag == "equal" && i2 == i1 && j2 == j1 {
-            continue;
-        }
-        normalized.push(Opcode::new(&opcode.tag, i1, i2, j1, j2));
-    }
     normalized
 }

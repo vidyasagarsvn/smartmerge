@@ -278,23 +278,31 @@ const getPathKind = async (path: string) => {
 };
 
 const browseDraftPath = async (side: "left" | "right", mode: "file" | "folder") => {
-  const selection = await open({
-    multiple: false,
-    directory: mode === "folder",
-    filters: mode === "file" ? [{ name: "All Files", extensions: ["*"] }] : undefined,
-  });
-  if (!selection || Array.isArray(selection)) {
-    return;
-  }
-  if (mode === "file") {
-    openFilesError.value = "";
-  } else {
-    openFoldersError.value = "";
-  }
-  if (side === "left") {
-    draftLeftPath.value = selection;
-  } else {
-    draftRightPath.value = selection;
+  try {
+    const selection = await open({
+      multiple: false,
+      directory: mode === "folder",
+    });
+    if (!selection || Array.isArray(selection)) {
+      return;
+    }
+    if (mode === "file") {
+      openFilesError.value = "";
+    } else {
+      openFoldersError.value = "";
+    }
+    if (side === "left") {
+      draftLeftPath.value = selection;
+    } else {
+      draftRightPath.value = selection;
+    }
+  } catch (error) {
+    const errorMsg = `Error selecting ${mode}: ${String(error)}`;
+    if (mode === "file") {
+      openFilesError.value = errorMsg;
+    } else {
+      openFoldersError.value = errorMsg;
+    }
   }
 };
 
@@ -556,11 +564,11 @@ const handleSaveAll = async () => {
 };
 
 const handleNextChange = () => {
-  fileCompareRef.value?.nextChange();
+  fileCompareRef.value?.nextDiff();
 };
 
 const handlePrevChange = () => {
-  fileCompareRef.value?.prevChange();
+  fileCompareRef.value?.prevDiff();
 };
 
 const openFontPicker = () => {
@@ -739,7 +747,7 @@ onBeforeUnmount(() => {
   }
 });
 
-function handleToolbarAction(action: string) {
+function handleToolbarAction(action: string, value?: string) {
   switch (action) {
     case "open-files":
       openFilePair();
@@ -765,6 +773,12 @@ function handleToolbarAction(action: string) {
     case "theme":
       theme.value = theme.value === "light" ? "dark" : "light";
       statusText.value = `Switched to ${theme.value} mode.`;
+      break;
+    case "algorithm":
+      if (value && ['smart', 'myers', 'patience'].includes(value)) {
+        diffEngine.value = value as typeof diffEngine.value;
+        statusText.value = `Engine set to ${diffEngine.value}.`;
+      }
       break;
     case "engine":
       toggleEngine();
@@ -823,8 +837,9 @@ function handleToolbarAction(action: string) {
         ref="fileCompareRef"
         :left-label="leftPath ?? ''"
         :right-label="rightPath ?? ''"
-        :diff-result="diffResult"
-        :engine="diffEngine"
+        :left-path="leftPath ?? undefined"
+        :right-path="rightPath ?? undefined"
+        :algorithm="diffEngine"
         @region-change="handleRegionChange"
       />
       <FolderCompareView

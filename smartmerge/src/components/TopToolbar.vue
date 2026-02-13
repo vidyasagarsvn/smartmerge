@@ -17,12 +17,13 @@ type ActionId =
   | "copy-all-left"
   | "copy-all-right"
   | "engine"
-  | "theme";
+  | "theme"
+  | "algorithm";
 
 const props = defineProps<{
   theme: "light" | "dark";
   viewMode: "file" | "folder";
-  engine: "smart" | "myers";
+  engine: "smart" | "myers" | "patience";
   canUndo: boolean;
   canRedo: boolean;
   canBack: boolean;
@@ -32,7 +33,7 @@ const props = defineProps<{
   canCopy: boolean;
   canCopyAll: boolean;
 }>();
-const emit = defineEmits<{ action: [ActionId] }>();
+const emit = defineEmits<{ action: [ActionId, string?] }>();
 
 const themeToggleTitle = computed(() =>
   props.theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"
@@ -252,6 +253,16 @@ function onAction(action: ActionId) {
     </div>
 
     <div class="toolbar__group toolbar__group--end">
+      <select
+        class="tool-select"
+        :value="props.engine"
+        @change="(e) => emit('action', 'algorithm', (e.target as HTMLSelectElement).value)"
+        title="Diff Algorithm"
+      >
+        <option value="myers">Myers</option>
+        <option value="smart">Smart</option>
+        <option value="patience">Patience</option>
+      </select>
       <button
         class="tool-btn tool-btn--icon tool-btn--accent"
         type="button"

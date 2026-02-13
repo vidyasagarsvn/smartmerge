@@ -1,14 +1,20 @@
-mod diff_engine;
+mod engine;
 mod file_io;
 mod folder_compare;
+mod highlighting;
+mod line_mapping;
+mod merge;
 mod models;
-mod smart_diff;
+mod trivial_filter;
 
-use diff_engine::{myers_opcodes, normalize_opcodes};
+use engine::{DiffEngine, AlgorithmType};
 use file_io::{read_lines, write_lines};
 use folder_compare::compare_folders;
+use highlighting::{HighlightEngine, Theme};
+use line_mapping::{compute_line_mappings, GhostLineLayout};
+use merge::MergeEngine;
 use models::{DiffResult, FolderItem, Opcode};
-use smart_diff::smart_diff;
+use trivial_filter::{analyze_trivial_changes, filter_trivial_opcodes, get_trivial_opcodes, TrivialChangeStats};
 use tauri::image::Image;
 use tauri::menu::{IconMenuItem, MenuBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager, Wry};
@@ -94,28 +100,28 @@ fn compare_files(left_path: String, right_path: String, engine: String) -> Resul
     let left_lines = read_lines(&left_path)?;
     let right_lines = read_lines(&right_path)?;
 
-    let opcodes = if engine == "myers" {
-        let raw = myers_opcodes(&left_lines, &right_lines);
-        normalize_opcodes(&raw, left_lines.len(), right_lines.len())
-    } else {
-        smart_diff(&left_lines, &right_lines)
+    let algorithm_type = match engine.as_str() {
+        "myers" => AlgorithmType::Myers,
+        "smart" => AlgorithmType::Smart,
+        _ => AlgorithmType::Myers,
     };
 
-    Ok(DiffResult {
-        left_lines,
-        right_lines,
-        opcodes,
-    })
+    let diff_engine = DiffEngine::with_algorithm(algorithm_type);
+    let result = diff_engine.compute_diff_result(left_lines, right_lines);
+
+    Ok(result)
 }
 
 #[tauri::command]
 fn compare_lines(left_lines: Vec<String>, right_lines: Vec<String>, engine: String) -> Result<Vec<Opcode>, String> {
-    let opcodes = if engine == "myers" {
-        let raw = myers_opcodes(&left_lines, &right_lines);
-        normalize_opcodes(&raw, left_lines.len(), right_lines.len())
-    } else {
-        smart_diff(&left_lines, &right_lines)
+    let algorithm_type = match engine.as_str() {
+        "myers" => AlgorithmType::Myers,
+        "smart" => AlgorithmType::Smart,
+        _ => AlgorithmType::Myers,
     };
+
+    let diff_engine = DiffEngine::with_algorithm(algorithm_type);
+    let opcodes = diff_engine.compute_diff(&left_lines, &right_lines);
 
     Ok(opcodes)
 }
@@ -139,6 +145,216 @@ fn get_path_kind(path: String) -> Result<String, String> {
         Ok("dir".to_string())
     } else {
         Ok("other".to_string())
+    }
+}
+
+#[tauri::command]
+fn highlight_diff(
+    left_lines: Vec<String>,
+    right_lines: Vec<String>,
+    algorithm: String,
+    theme: String,
+) -> Result<highlighting::HighlightResult, String> {
+    // Select algorithm
+    let algorithm_type = match algorithm.as_str() {
+        "myers" => AlgorithmType::Myers,
+        "smart" => AlgorithmType::Smart,
+        "patience" => AlgorithmType::Patience,
+        _ => AlgorithmType::Myers,
+    };
+
+    // Select theme
+    let theme_type = match theme.as_str() {
+        "light" => Theme::Light,
+        "dark" => Theme::Dark,
+        _ => Theme::Auto,
+    };
+
+    // Compute diff
+    let diff_engine = DiffEngine::with_algorithm(algorithm_type);
+    let diff_result = diff_engine.compute_diff_result(left_lines.clone(), right_lines.clone());
+
+    // Generate highlights
+    let highlight_engine = HighlightEngine::new(theme_type);
+    let highlight_result = highlight_engine.highlight(&diff_result, &left_lines, &right_lines);
+
+    Ok(highlight_result)
+}
+
+#[tauri::command]
+fn highlight_three_way(
+    base_lines: Vec<String>,
+    left_lines: Vec<String>,
+    right_lines: Vec<String>,
+    theme: String,
+) -> Result<highlighting::ThreeWayHighlightResult, String> {
+    use engine::three_way::ThreeWayDiff;
+
+    // Select theme
+    let theme_type = match theme.as_str() {
+        "light" => Theme::Light,
+        "dark" => Theme::Dark,
+        _ => Theme::Auto,
+    };
+
+    // Compute three-way diff
+    let diff_engine = DiffEngine::with_algorithm(AlgorithmType::Myers);
+    let three_way_engine = ThreeWayDiff::new(diff_engine);
+    let merge_result = three_way_engine.diff(&base_lines, &left_lines, &right_lines);
+
+    // Generate highlights
+    let highlight_engine = HighlightEngine::new(theme_type);
+    let highlight_result = highlight_engine.highlight_three_way(&merge_result, &base_lines, &left_lines, &right_lines);
+
+    Ok(highlight_result)
+}
+
+#[tauri::command]
+fn get_available_color_schemes() -> Result<Vec<(String, String)>, String> {
+    Ok(highlighting::ColorScheme::available_schemes())
+}
+
+#[tauri::command]
+fn get_color_scheme(scheme_id: String) -> Result<highlighting::ColorScheme, String> {
+    highlighting::ColorScheme::get_scheme(&scheme_id)
+        .ok_or_else(|| format!("Color scheme not found: {}", scheme_id))
+}
+
+#[tauri::command]
+fn analyze_diff_for_trivial(
+    mut diff_result: DiffResult,
+    treat_case_as_trivial: bool,
+) -> Result<(DiffResult, TrivialChangeStats), String> {
+    let stats = analyze_trivial_changes(&mut diff_result, treat_case_as_trivial);
+    Ok((diff_result, stats))
+}
+
+#[tauri::command]
+fn get_trivial_stats(
+    diff_result: DiffResult,
+    treat_case_as_trivial: bool,
+) -> Result<TrivialChangeStats, String> {
+    let mut result = diff_result;
+    let stats = analyze_trivial_changes(&mut result, treat_case_as_trivial);
+    Ok(stats)
+}
+
+#[tauri::command]
+fn filter_out_trivial_changes(opcodes: Vec<Opcode>) -> Result<Vec<Opcode>, String> {
+    Ok(filter_trivial_opcodes(&opcodes))
+}
+
+#[tauri::command]
+fn get_only_trivial_changes(opcodes: Vec<Opcode>) -> Result<Vec<Opcode>, String> {
+    Ok(get_trivial_opcodes(&opcodes))
+}
+
+#[tauri::command]
+fn compute_ghost_line_mappings(
+    left_lines: Vec<String>,
+    right_lines: Vec<String>,
+    opcodes: Vec<Opcode>,
+) -> Result<Vec<GhostLineLayout>, String> {
+    Ok(compute_line_mappings(&left_lines, &right_lines, &opcodes))
+}
+
+use std::sync::Mutex;
+use std::collections::HashMap;
+use once_cell::sync::Lazy;
+
+// Global merge engine storage (thread-safe)
+static MERGE_ENGINES: Lazy<Mutex<HashMap<String, MergeEngine>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+
+#[tauri::command]
+fn start_merge(
+    merge_id: String,
+    base_lines: Vec<String>,
+    left_lines: Vec<String>,
+    right_lines: Vec<String>,
+) -> Result<merge::MergeState, String> {
+    use engine::three_way::ThreeWayDiff;
+
+    // Compute three-way diff
+    let diff_engine = DiffEngine::with_algorithm(AlgorithmType::Myers);
+    let three_way_engine = ThreeWayDiff::new(diff_engine);
+    let diff_result = three_way_engine.diff(&base_lines, &left_lines, &right_lines);
+
+    // Create merge engine
+    let engine = MergeEngine::new(diff_result, base_lines, left_lines, right_lines);
+    let state = engine.state().clone();
+
+    // Store engine
+    let mut engines = MERGE_ENGINES.lock().unwrap();
+    engines.insert(merge_id, engine);
+
+    Ok(state)
+}
+
+#[tauri::command]
+fn merge_accept_left(merge_id: String, block_index: usize) -> Result<merge::MergeState, String> {
+    let mut engines = MERGE_ENGINES.lock().unwrap();
+    let engine = engines.get_mut(&merge_id).ok_or("Merge session not found")?;
+    engine.accept_left(block_index)?;
+    Ok(engine.state().clone())
+}
+
+#[tauri::command]
+fn merge_accept_right(merge_id: String, block_index: usize) -> Result<merge::MergeState, String> {
+    let mut engines = MERGE_ENGINES.lock().unwrap();
+    let engine = engines.get_mut(&merge_id).ok_or("Merge session not found")?;
+    engine.accept_right(block_index)?;
+    Ok(engine.state().clone())
+}
+
+#[tauri::command]
+fn merge_accept_both(merge_id: String, block_index: usize, left_first: bool) -> Result<merge::MergeState, String> {
+    let mut engines = MERGE_ENGINES.lock().unwrap();
+    let engine = engines.get_mut(&merge_id).ok_or("Merge session not found")?;
+    engine.accept_both(block_index, left_first)?;
+    Ok(engine.state().clone())
+}
+
+#[tauri::command]
+fn merge_apply_custom(merge_id: String, block_index: usize, custom_lines: Vec<String>) -> Result<merge::MergeState, String> {
+    let mut engines = MERGE_ENGINES.lock().unwrap();
+    let engine = engines.get_mut(&merge_id).ok_or("Merge session not found")?;
+    engine.apply_custom(block_index, custom_lines)?;
+    Ok(engine.state().clone())
+}
+
+#[tauri::command]
+fn merge_undo(merge_id: String) -> Result<merge::MergeState, String> {
+    let mut engines = MERGE_ENGINES.lock().unwrap();
+    let engine = engines.get_mut(&merge_id).ok_or("Merge session not found")?;
+    engine.undo()?;
+    Ok(engine.state().clone())
+}
+
+#[tauri::command]
+fn merge_redo(merge_id: String) -> Result<merge::MergeState, String> {
+    let mut engines = MERGE_ENGINES.lock().unwrap();
+    let engine = engines.get_mut(&merge_id).ok_or("Merge session not found")?;
+    engine.redo()?;
+    Ok(engine.state().clone())
+}
+
+#[tauri::command]
+fn merge_auto_resolve(merge_id: String) -> Result<(usize, merge::MergeState), String> {
+    let mut engines = MERGE_ENGINES.lock().unwrap();
+    let engine = engines.get_mut(&merge_id).ok_or("Merge session not found")?;
+    let count = engine.auto_resolve_all()?;
+    Ok((count, engine.state().clone()))
+}
+
+#[tauri::command]
+fn merge_build_result(merge_id: String, include_unresolved: bool) -> Result<merge::MergeResult, String> {
+    let engines = MERGE_ENGINES.lock().unwrap();
+    let engine = engines.get(&merge_id).ok_or("Merge session not found")?;
+    
+    if include_unresolved {
+        engine.build_result()
+    } else {
+        engine.build_partial_result()
     }
 }
 
@@ -397,7 +613,25 @@ pub fn run() {
             compare_folders_command,
             save_file,
             set_menu_state,
-            get_path_kind
+            get_path_kind,
+            highlight_diff,
+            highlight_three_way,
+            get_available_color_schemes,
+            get_color_scheme,
+            analyze_diff_for_trivial,
+            get_trivial_stats,
+            filter_out_trivial_changes,
+            get_only_trivial_changes,
+            compute_ghost_line_mappings,
+            start_merge,
+            merge_accept_left,
+            merge_accept_right,
+            merge_accept_both,
+            merge_apply_custom,
+            merge_undo,
+            merge_redo,
+            merge_auto_resolve,
+            merge_build_result
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
