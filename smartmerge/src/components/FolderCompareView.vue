@@ -499,6 +499,7 @@ defineExpose({
   overflow: auto;
 }
 
+
 .folder-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -507,6 +508,7 @@ defineExpose({
   border-bottom: 1px solid var(--color-border-soft, #e5e7eb);
   align-items: center;
   overflow-x: hidden;
+  min-height: 2.25rem; /* Fixed minimum height for row consistency */
 }
 
 .folder-row--head {
@@ -516,6 +518,7 @@ defineExpose({
   font-weight: 600;
   border-bottom: 2px solid var(--color-border);
   z-index: 1;
+  min-height: 2.25rem; /* Match data row height for consistency */
 }
 
 .folder-row--parent {

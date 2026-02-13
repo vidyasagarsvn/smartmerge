@@ -358,11 +358,22 @@ export function useFolderCompare() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
+
+  // Normalize status from backend (snake_case) to filter key (lowercase, no underscore)
+  function normalizeStatus(status: string): string {
+    return status.replace(/_/g, '').toLowerCase();
+  }
+
   async function compareFolders(leftPath: string, rightPath: string, recursive: boolean = true) {
     loading.value = true;
     error.value = null;
     try {
-      items.value = await DiffAPI.compareFolders(leftPath, rightPath);
+      const rawItems = await DiffAPI.compareFolders(leftPath, rightPath);
+      // Normalize status for all items
+      items.value = rawItems.map(item => ({
+        ...item,
+        status: normalizeStatus(item.status),
+      }));
     } catch (e) {
       error.value = String(e);
       items.value = [];
