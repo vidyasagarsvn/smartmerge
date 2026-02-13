@@ -33,6 +33,8 @@ export default [
       "vue/singleline-html-element-content-newline": "off",
       "vue/html-self-closing": "off",
       "vue/attributes-order": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "no-unused-vars": "off",
     },
   },
 ];

@@ -16,7 +16,7 @@ use merge::MergeEngine;
 use models::{DiffResult, FolderItem, Opcode};
 use trivial_filter::{analyze_trivial_changes, filter_trivial_opcodes, get_trivial_opcodes, TrivialChangeStats};
 use tauri::image::Image;
-use tauri::menu::{IconMenuItem, MenuBuilder, SubmenuBuilder};
+use tauri::menu::{IconMenuItem, CheckMenuItem, MenuBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager, Wry};
 
 struct MenuItems {
@@ -31,6 +31,7 @@ struct MenuItems {
     copy_right: IconMenuItem<Wry>,
     copy_all_left: IconMenuItem<Wry>,
     copy_all_right: IconMenuItem<Wry>,
+    show_minimap: CheckMenuItem<Wry>,
 }
 
 #[derive(serde::Deserialize)]
@@ -511,6 +512,15 @@ pub fn run() {
                 Some(icon_theme.clone()),
                 None::<&str>,
             )?;
+
+            let show_minimap = CheckMenuItem::with_id(
+                app,
+                "show-minimap",
+                "Show Minimap",
+                true,  // checked by default
+                true,  // enabled by default
+                None::<&str>,
+            )?;
             let about = IconMenuItem::with_id(
                 app,
                 "about",
@@ -564,6 +574,7 @@ pub fn run() {
                 .build()?;
 
             let view_menu = SubmenuBuilder::new(app, "&View")
+                .item(&show_minimap)
                 .item(&theme)
                 .build()?;
 
@@ -593,6 +604,7 @@ pub fn run() {
                 copy_right,
                 copy_all_left,
                 copy_all_right,
+                show_minimap,
             });
 
             Ok(())

@@ -840,6 +840,7 @@ function handleToolbarAction(action: string, value?: string) {
         :left-path="leftPath ?? undefined"
         :right-path="rightPath ?? undefined"
         :algorithm="diffEngine"
+        :show-minimap="showMinimap"
         @region-change="handleRegionChange"
       />
       <FolderCompareView
