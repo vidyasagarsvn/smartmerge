@@ -31,7 +31,7 @@ struct MenuItems {
     copy_right: IconMenuItem<Wry>,
     copy_all_left: IconMenuItem<Wry>,
     copy_all_right: IconMenuItem<Wry>,
-    show_minimap: CheckMenuItem<Wry>,
+    toggle_minimap_locations: IconMenuItem<Wry>,
 }
 
 #[derive(serde::Deserialize)]
@@ -513,12 +513,13 @@ pub fn run() {
                 None::<&str>,
             )?;
 
-            let show_minimap = CheckMenuItem::with_id(
+            let icon_minimap = load_icon(include_bytes!("../icons/menu/minimap.png"))?;
+            let toggle_minimap_locations = IconMenuItem::with_id(
                 app,
-                "show-minimap",
-                "Show Minimap",
-                true,  // checked by default
-                true,  // enabled by default
+                "toggle-minimap-locations",
+                "Toggle Minimap & Locations",
+                true,
+                Some(icon_minimap.clone()),
                 None::<&str>,
             )?;
             let about = IconMenuItem::with_id(
@@ -574,7 +575,7 @@ pub fn run() {
                 .build()?;
 
             let view_menu = SubmenuBuilder::new(app, "&View")
-                .item(&show_minimap)
+                .item(&toggle_minimap_locations)
                 .item(&theme)
                 .build()?;
 
@@ -604,7 +605,7 @@ pub fn run() {
                 copy_right,
                 copy_all_left,
                 copy_all_right,
-                show_minimap,
+                toggle_minimap_locations,
             });
 
             Ok(())

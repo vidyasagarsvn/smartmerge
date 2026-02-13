@@ -83,6 +83,8 @@ const canBack = computed(() =>
     (viewMode.value === "folder" && navigationStack.value.length > 0)
 );
 const showAbout = ref(false);
+// Minimap & Locations toggle state
+const showMinimapLocations = ref(true);
 const showFontPicker = ref(false);
 const showOpenFiles = ref(false);
 const showOpenFolders = ref(false);
@@ -808,6 +810,12 @@ function handleToolbarAction(action: string, value?: string) {
     case "font-picker":
       openFontPicker();
       break;
+    case "toggle-minimap-locations":
+      showMinimapLocations.value = !showMinimapLocations.value;
+      statusText.value = showMinimapLocations.value
+        ? "Minimap & Locations enabled."
+        : "Minimap & Locations hidden.";
+      break;
     default:
       statusText.value = `Action: ${action}`;
   }
@@ -840,7 +848,7 @@ function handleToolbarAction(action: string, value?: string) {
         :left-path="leftPath ?? undefined"
         :right-path="rightPath ?? undefined"
         :algorithm="diffEngine"
-        :show-minimap="showMinimap"
+        :show-minimap-locations="showMinimapLocations"
         @region-change="handleRegionChange"
       />
       <FolderCompareView

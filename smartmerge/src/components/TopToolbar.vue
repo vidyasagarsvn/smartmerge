@@ -253,16 +253,10 @@ function onAction(action: ActionId) {
     </div>
 
     <div class="toolbar__group toolbar__group--end">
-      <select
-        class="tool-select"
-        :value="props.engine"
-        @change="(e) => emit('action', 'algorithm', (e.target as HTMLSelectElement).value)"
-        title="Diff Algorithm"
-      >
-        <option value="myers">Myers</option>
-        <option value="smart">Smart</option>
-        <option value="patience">Patience</option>
-      </select>
+      <div class="menu-dropdown">
+          <!-- Removed View and Toggle Minimap & Locations buttons as requested -->
+      </div>
+      <!-- Diff algorithm dropdown removed as requested -->
       <button
         class="tool-btn tool-btn--icon tool-btn--accent"
         type="button"

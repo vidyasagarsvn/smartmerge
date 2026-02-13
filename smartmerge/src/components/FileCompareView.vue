@@ -6,9 +6,9 @@
 -->
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useDiff, useHighlighting } from '@/composables/useSmartMerge';
-import type { DiffAlgorithm, Theme, TrivialChangeStats, GhostLineLayout } from '@/api/smartmerge';
+import type { Theme, TrivialChangeStats, GhostLineLayout } from '@/api/smartmerge';
 import { TrivialDiffAPI, GhostLineAPI } from '@/api/smartmerge';
 import TrivialDiffFilter from './TrivialDiffFilter.vue';
 import LocationPane from './LocationPane.vue';
@@ -22,8 +22,10 @@ const props = defineProps<{
   rightPath?: string;
   leftLines?: string[];
   rightLines?: string[];
-  algorithm?: DiffAlgorithm;
+  // algorithm prop removed (always uses 'smart')
   theme?: Theme;
+  showMinimapLocations?: boolean;
+  showRightPane?: boolean; // New prop to control right pane visibility
 }>();
 
 // Emits
@@ -35,16 +37,8 @@ const emit = defineEmits<{
 const { diffResult, loading: diffLoading, compareFiles, compareLines } = useDiff();
 const { highlightResult, loading: highlightLoading, highlightDiff } = useHighlighting();
 
-// Algorithm selection
-const selectedAlgorithm = ref<DiffAlgorithm>(props.algorithm || 'myers');
+// Theme selection only
 const selectedTheme = ref<Theme>(props.theme || 'auto');
-
-// Watch for algorithm changes from parent
-watch(() => props.algorithm, (newAlgorithm) => {
-  if (newAlgorithm) {
-    selectedAlgorithm.value = newAlgorithm;
-  }
-});
 
 // Trivial diff filtering
 const trivialStats = ref<TrivialChangeStats | null>(null);
@@ -62,14 +56,43 @@ const ghostLineMappings = ref<GhostLineLayout[]>([]);
 
 // Location pane and minimap tracking
 const currentViewportLine = ref(0);
-const showLocationPane = ref(true);
-const showMinimap = ref(true);
+const showMinimapLocations = ref(true);
+const showRightPane = ref(true);
+
+// Accept prop for toggling minimap & locations
+watch(() => props.showMinimapLocations, (val) => {
+  showMinimapLocations.value = val ?? true;
+});
+// Accept prop for toggling right pane
+watch(() => props.showRightPane, (val) => {
+  showRightPane.value = val ?? true;
+});
 
 // Refs for pane scrolling
 const leftPaneRef = ref<HTMLElement | null>(null);
 const rightPaneRef = ref<HTMLElement | null>(null);
 const isSyncingScroll = ref(false);
 
+// Responsive resizing for pane-content
+function handleResize() {
+  nextTick(() => {
+    // Force update for pane-content areas
+    if (leftPaneRef.value) {
+      leftPaneRef.value.style.height = '';
+    }
+    if (rightPaneRef.value) {
+      rightPaneRef.value.style.height = '';
+    }
+  });
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize);
+});
 // Loading state
 const loading = computed(() => diffLoading.value || highlightLoading.value);
 
@@ -77,14 +100,11 @@ const loading = computed(() => diffLoading.value || highlightLoading.value);
 async function performComparison() {
   // If paths are provided, compare files
   if (props.leftPath && props.rightPath) {
-    console.log('FileCompareView: comparing files', props.leftPath, props.rightPath, selectedAlgorithm.value);
-    await compareFiles(props.leftPath, props.rightPath, selectedAlgorithm.value);
-    console.log('FileCompareView: diffResult after compareFiles', diffResult.value);
+    await compareFiles(props.leftPath, props.rightPath, 'smart');
   }
   // If lines are provided, compare lines
   else if (props.leftLines && props.rightLines) {
-    console.log('FileCompareView: comparing lines');
-    await compareLines(props.leftLines, props.rightLines, selectedAlgorithm.value);
+    await compareLines(props.leftLines, props.rightLines, 'smart');
   }
 
   // After diff is complete, generate highlights
@@ -93,7 +113,7 @@ async function performComparison() {
     await highlightDiff(
       diffResult.value.left_lines,
       diffResult.value.right_lines,
-      selectedAlgorithm.value,
+      'smart',
       selectedTheme.value
     );
 
@@ -272,7 +292,7 @@ function shouldShowLine(lineIndex: number, isLeftPane: boolean): boolean {
 
 // Watch for prop changes
 watch(
-  () => [props.leftPath, props.rightPath, props.leftLines, props.rightLines, selectedAlgorithm.value],
+  () => [props.leftPath, props.rightPath, props.leftLines, props.rightLines],
   () => {
     performComparison();
   },
@@ -307,11 +327,10 @@ const leftLineData = computed(() => {
     }
     return lines.filter(line => line.visible);
   }
-  
+
   // Process ghost line mappings (WinMerge-style intelligent alignment)
   for (let blockIndex = 0; blockIndex < ghostLineMappings.value.length; blockIndex++) {
     const layout = ghostLineMappings.value[blockIndex];
-    
     for (const mapping of layout.left_mappings) {
       if (mapping.maps_to === null) {
         // This is a ghost line - no real content
@@ -332,7 +351,6 @@ const leftLineData = computed(() => {
         const highlight = highlightResult.value.left_highlights.find(
           (h: any) => h.line_number === realIndex
         );
-        
         lines.push({
           number: realIndex + 1,  // 1-based for display
           displayNumber: displayLineNumber++,
@@ -346,7 +364,6 @@ const leftLineData = computed(() => {
       }
     }
   }
-  
   return lines.filter(line => line.visible);
 });
 
@@ -609,11 +626,7 @@ function scrollToRegion(index: number) {
   });
 }
 
-// Algorithm change handler
-function onAlgorithmChange(algorithm: DiffAlgorithm) {
-  selectedAlgorithm.value = algorithm;
-  performComparison();
-}
+
 
 // Theme change handler
 function onThemeChange(theme: Theme) {
@@ -627,17 +640,17 @@ defineExpose({
   prevDiff,
   diffRegions,
   currentRegionIndex,
-  onAlgorithmChange,
+  // onAlgorithmChange removed
   onThemeChange,
   refresh: performComparison,
   trivialStats,
   trivialFilterState,
   onFilterChange,
   currentViewportLine,
-  showLocationPane,
+  // showLocationPane removed: not defined in script
   onLocationNavigate,
   onPaneScroll,
-  showMinimap,
+  // showMinimap removed: not defined in script
   onMinimapNavigate,
 });
 </script>
@@ -649,25 +662,7 @@ defineExpose({
       <div class="spinner">Loading...</div>
     </div>
 
-    <!-- Toolbar -->
-    <div class="toolbar">
-      <div class="toolbar-section navigation">
-        <button @click="prevDiff" :disabled="currentRegionIndex === 0">
-          Previous
-        </button>
-        <span class="region-counter">
-          {{ currentRegionIndex + 1 }} / {{ diffRegions.length }}
-        </span>
-        <button @click="nextDiff" :disabled="currentRegionIndex >= diffRegions.length - 1">
-          Next
-        </button>
-      </div>
-      
-      <div class="toolbar-section stats" v-if="diffResult">
-        <span>Changes: {{ diffResult.total_changes ?? 0 }}</span>
-        <span v-if="diffResult.moved_blocks">Moved: {{ diffResult.moved_blocks.length }}</span>
-      </div>
-    </div>
+    <!-- Toolbar removed: stats pane and engine dropdown no longer needed -->
 
     <!-- Empty state message -->
     <div v-if="!diffResult" class="empty-state">
@@ -688,8 +683,9 @@ defineExpose({
     /> -->
 
     <!-- Split view -->
+
     <div v-if="diffResult" class="split-view">
-      <!-- Left pane -->
+      <!-- Left pane (always visible, forcibly rendered) -->
       <div class="pane left-pane">
         <div class="pane-header">{{ leftLabel }}</div>
         <div ref="leftPaneRef" class="pane-content" @scroll="onPaneScroll($event, true)">
@@ -706,7 +702,6 @@ defineExpose({
             <span class="line-number line-number-ghost" v-else>·</span>
             <span class="line-content">
               <template v-if="!line.isGhost && line.inlineHighlights.length > 0">
-                <!-- Render with inline highlights -->
                 <span
                   v-for="(part, idx) in splitTextWithHighlights(line.text, line.inlineHighlights)"
                   :key="idx"
@@ -723,8 +718,8 @@ defineExpose({
         </div>
       </div>
 
-      <!-- Right pane -->
-      <div class="pane right-pane">
+      <!-- Right pane (conditionally rendered) -->
+      <div v-if="showRightPane" class="pane right-pane">
         <div class="pane-header">{{ rightLabel }}</div>
         <div ref="rightPaneRef" class="pane-content" @scroll="onPaneScroll($event, false)">
           <div
@@ -760,7 +755,7 @@ defineExpose({
       <!-- Sidebar: Minimap + Location Pane -->
       <div class="sidebar-panel">
         <!-- Minimap -->
-        <div v-if="showMinimap" class="minimap-wrapper-outer">
+        <div v-if="showMinimapLocations" class="minimap-wrapper-outer">
           <Minimap
             :diffResult="diffResult"
             :currentViewportStart="Math.max(0, currentViewportLine - 10)"
@@ -771,7 +766,7 @@ defineExpose({
         </div>
 
         <!-- Location Pane -->
-        <div v-if="showLocationPane" class="location-pane-wrapper-outer">
+        <div v-if="showMinimapLocations" class="location-pane-wrapper-outer">
           <LocationPane
             :diffResult="diffResult"
             :currentLineNumber="currentViewportLine"
@@ -886,6 +881,12 @@ function splitTextWithHighlights(text: string, highlights: any[]) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: flex-basis 0.2s, width 0.2s;
+}
+
+.left-pane.single-pane {
+  flex: 2 1 0%;
+  /* Take up all available space when right pane is hidden */
 }
 
 .pane-header {
